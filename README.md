@@ -12,7 +12,101 @@ RM2022自动步兵开源链接https://github.com/SCAU-RM-NAV/rm2022_auto_infantr
 * Ubuntu20.04
 * ros Noetic
 
+硬件环境
+* intel i7-1165G7工控机
 
+## 代码框架
+```
+ src
+    ├── 4ws_auto_infantry   仿真模型功能包
+    │   ├── CMakeLists.txt
+    │   ├── config 参数配置文件
+    │   ├── launch
+    │   │   ├── display.launch
+    │   │   ├── display_rviz.launch
+    │   │   └── gazebo.launch
+    │   ├── meshes  STL文件目录
+    │   ├── package.xml
+    │   ├── robots
+    │   │   └── 4ws_auto_infantry.xacro
+    │   ├── urdf
+    │   └── world 赛场仿真模型
+    ├── CMakeLists.txt -> 
+    │
+    ├── auto_nav    导航算法功能包
+    │   ├── CMakeLists.txt
+    │   ├── cfg
+    │   │   └── tracks_follow.cfg
+    │   ├── config 参数配置文件夹
+    │   ├── example
+    │   │   ├── pid.c
+    │   │   └── pid.h
+    │   ├── include
+    │   │   ├── cubic_spline
+    │   │   │   ├── cpprobotics_types.h
+    │   │   │   ├── cubic_spline.h
+    │   │   │   └── cubic_spline_ros.h
+    │   │   ├── pid.h
+    │   │   ├── pid_position_follow.h      pid轨迹跟踪头文件
+    │   │   └── utility.h
+    │   ├── launch
+    │   │   ├── amcl_simple_meca_car.launch
+    │   │   ├── gmapping.launch
+    │   │   ├── gmapping_demo.launch
+    │   │   ├── navi_simple_meca_car.launch
+    │   │   ├── navi_simple_meca_car_pid.launch 导航定位算法launch文件
+    │   │   ├── pid_follow_planner.launch
+    │   │   └── simple_meca_car_gmapping.launch
+    │   ├── map 地图
+    │   ├── package.xml
+    │   └── src
+    │       ├── pid.cpp
+    │       └── pid_position_follow.cpp
+    ├── rmus_map_2  仿真模型功能包
+    │   ├── CMakeLists.txt
+    │   ├── config
+    │   │   └── joint_names_RMUS_map_2.yaml
+    │   ├── export.log
+    │   ├── launch
+    │   │   ├── display.launch
+    │   │   └── gazebo.launch
+    │   ├── meshes
+    │   │   └── base_link.stl
+    │   ├── package.xml
+    │   └── urdf
+    │       ├── RMUS_map_2.csv
+    │       └── rmus_map_2.urdf
+    ├── roborts_msgs 消息类型功能包
+    │   ├── CMakeLists.txt
+    │   ├── msg
+    │   │   ├── EnemyInfo.msg
+    │   │   ├── EnemyLocate.msg
+    │   │   ├── GameStatus.msg
+    │   │   ├── GimbalCtrl.msg
+    │   │   ├── GimbalFdb.msg
+    │   │   └── RobotStatus.msg
+    │   ├── package.xml
+    │   └── srv
+    │       ├── PidPlannerStatus.srv
+    │       └── Relocate.srv
+    ├── scan_to_map  定位算法功能包
+    │   ├── CMakeLists.txt
+    │   ├── include
+    │   │   └── scan_to_map_location.h
+    │   ├── launch
+    │   │   ├── robot_localization_icp.launch
+    │   │   └── scan_to_map_location.launch 
+    │   ├── package.xml
+    │   ├── param
+    │   │   └── robot_localization.yaml robot_localization功能包参数
+    │   ├── script
+    │   │   └── test.py
+    │   └── src
+    │       ├── SnapMapICP.cpp
+    │       └── scan_to_map_location.cpp
+    └── simple_meca_car 仿真小车功能包
+
+```
 ## 使用方法
 克隆存储库并catkin_make：
 ```
