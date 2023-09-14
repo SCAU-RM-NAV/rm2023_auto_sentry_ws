@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/suspension/suspension.transmission.xacro"/>
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/suspension/suspension.gazebo.xacro"/>
+  
+  <xacro:macro name="steering_yaw" params="prefix parent *joint_origin *joint_axis">
+	<joint name="${prefix}_steering_joint" type="continuous">
+	  <xacro:insert_block name="joint_origin"/>
+	  <parent link="${parent}"/>
+	  <child link="${prefix}_steering_link"/>
+          <xacro:insert_block name="joint_axis"/>
+	</joint>
+
+	<link name="${prefix}_steering_link">
+	<inertial>
+      <origin
+        xyz="0.0033026586971186 -0.00141433442026462 0.0492017467960623"
+        rpy="0 0 0" />
+      <mass
+        value="1.500860330559733" />
+      <inertia
+        ixx="0.000989192198602812"
+        ixy="-1.3529226863658E-06"
+        ixz="-2.85373821110227E-05"
+        iyy="0.000659302734650477"
+        iyz="2.94840176363339E-05"
+        izz="0.000888939800483085" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4ws_auto_infantry/meshes/yaw_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4ws_auto_infantry/meshes/yaw_link.STL" />
+      </geometry>
+    </collision>
+	</link>
+  </xacro:macro>
+  
+</robot>

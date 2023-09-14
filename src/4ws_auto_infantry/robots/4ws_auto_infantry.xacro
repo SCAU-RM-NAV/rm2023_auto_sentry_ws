@@ -1,0 +1,193 @@
+<?xml version="1.0"?>
+<robot name="taurus_4ws" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:property name="M_PI" value="3.14159274"/>
+
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/base/base.urdf.xacro"/>
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/suspension/suspension.urdf.xacro"/>
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/wheel/wheel.urdf.xacro"/>
+
+  
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/suspension/globalpitch.urdf.xacro"/>
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/suspension/globalyaw.urdf.xacro"/>
+   
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/sensor/imu/imu.urdf.xacro"/>
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/sensor/lidar/lidar.urdf.xacro"/>
+  <xacro:include filename="$(find 4ws_auto_infantry)/urdf/sensor/camera/camera.urdf.xacro"/>
+  
+
+  <!-- =============== Link & Joint =============== -->
+  <!-- Base -->
+  <link name="base_footprint"/>
+  <xacro:base_v0 parent="base_footprint">
+    <origin xyz="0 0 0"/>
+  </xacro:base_v0>
+  
+  <!-- IMU -->
+  <xacro:imu_v0 prefix="imu" parent="base_link">
+	<origin
+      xyz="0.130808431401769 -0.000220675328304477 0.0279999999999999"
+      rpy="0 0 0" />
+  </xacro:imu_v0>
+  
+    <!-- CAMERA -->
+ <xacro:camera_v0 prefix="camera" parent="pitch_steering_link">
+  <origin
+      xyz="0.13112 -0.00050216534503969 0.0420000000000005"
+      rpy="0 0 0" />
+ </xacro:camera_v0>
+  
+    <!-- Lidar 1 -->
+  <xacro:rplidar prefix="lidar_1" parent = "base_link">
+  	 <origin
+      xyz="0.143385236440617 -0.14607365029173 0.170364832686067"
+      rpy="0.0174559514158991 -0.0174532925199405 -0.785550503045631" />
+  </xacro:rplidar>
+  
+    <!-- Lidar 2 -->
+  <xacro:rplidar prefix="lidar_2" parent = "base_link">
+  	<origin
+      xyz="-0.154275039887516 0.151073668429019 0.170364832686068"
+      rpy="0.0174453198799712 -0.0174532925199458 2.35634682984053" />
+  </xacro:rplidar>
+
+
+  
+    <!-- Suspension -->
+  <!-- YAW -->
+  <xacro:steering_yaw prefix="yaw" parent="base_link">
+	<origin
+      xyz="-0.00461231611052366 0 0.08799999999999"
+      rpy="0 0 0" />
+	<axis xyz="0 0 1" />
+  </xacro:steering_yaw>
+  <!-- PITCH -->
+  <xacro:steering_pitch prefix="pitch" parent="yaw_steering_link">
+	<origin
+      xyz="0 0 0.152999458706042"
+      rpy="0 0 0" />
+	<axis xyz="0 1 0" />
+  </xacro:steering_pitch>
+
+  <!-- Suspension -->
+  <!-- Front Left Sus -->
+  <xacro:steering_v0 prefix="fl" parent="base_link" file_prefix="fl">
+    <origin
+      xyz="0.160387678312938 0.165000000000001 0.0156648397333951"
+      rpy="0 0 0" />
+    <axis
+      xyz="0 0 -1" />
+  </xacro:steering_v0>
+  <!-- Front Right Sus -->
+  <xacro:steering_v0 prefix="fr" parent="base_link" file_prefix="fl">
+    <origin
+      xyz="0.160387678312939 -0.165 0.015664832686077"
+      rpy="0 0 0" />
+    <axis xyz="0 0 -1"/>
+  </xacro:steering_v0>
+  <!-- Rear Left Sus -->
+  <xacro:steering_v0 prefix="bl" parent="base_link" file_prefix="fl">
+    <origin
+      xyz="-0.169612321687062 0.164999999999999 0.0156648361657047"
+      rpy="0 0 0" />
+    <axis xyz="0 0 -1"/>
+  </xacro:steering_v0>
+  <!-- Rear Right Sus -->
+  <xacro:steering_v0 prefix="br" parent="base_link" file_prefix="fl">
+    <origin
+      xyz="-0.169612321687061 -0.165000000000001 0.0154600000000106"
+      rpy="0 0 0" />
+    <axis xyz="0 0 -1"/>
+  </xacro:steering_v0>
+
+
+  <!-- Wheel -->
+  <!--  Front Left Wheel -->
+  <xacro:wheel_v0 prefix="fl" parent="fl_steering_link" file_prefix="fl">
+    <origin
+      xyz="-4.99999999996614E-05 -0.0119999999999999 -0.0699999999999988"
+      rpy="0 0 0" />
+    <axis xyz="0 1 0"/>
+  </xacro:wheel_v0>
+  <!-- Front Right Wheel -->
+  <xacro:wheel_v0 prefix="fr" parent="fr_steering_link" file_prefix="fl">
+    <origin
+      xyz="-5.00000000002165E-05 -0.0119999999999999 -0.07"
+      rpy="0 0 0" />
+    <axis xyz="0 1 0"/>
+  </xacro:wheel_v0>
+  <!--  Rear Left Wheel -->
+  <xacro:wheel_v0 prefix="bl" parent="bl_steering_link" file_prefix="fl">
+    <origin
+      xyz="-4.9999999999828E-05 -0.0119999999999999 -0.0700000000000005"
+      rpy="0 0 0" />
+    <axis xyz="0 1 0"/>
+  </xacro:wheel_v0>
+  <!-- Rear Right Wheel -->
+  <xacro:wheel_v0 prefix="br" parent="br_steering_link" file_prefix="fl">
+    <origin
+      xyz="-5.00000000003831E-05 -0.012 -0.0699999999999993"
+      rpy="0 0 0" />
+    <axis xyz="0 1 0"/>
+  </xacro:wheel_v0>
+
+
+  <!-- ===============  Wheel Transmission =============== -->
+  <xacro:wheel_trans_v0 prefix="fr"/>
+  <xacro:wheel_trans_v0 prefix="fl"/>
+  <xacro:wheel_trans_v0 prefix="br"/>
+  <xacro:wheel_trans_v0 prefix="bl"/>
+
+
+  <!-- ===============  Steering Transmission =============== -->
+  <xacro:steering_trans_v0 prefix="fr"/>
+  <xacro:steering_trans_v0 prefix="fl"/>
+  <xacro:steering_trans_v0 prefix="bl"/>
+  <xacro:steering_trans_v0 prefix="br"/>
+  
+    <!-- ===============  Gimbal Steer Transmission =============== -->
+  <xacro:steering_trans_v0 prefix="yaw"/>
+  <xacro:steering_trans_v0 prefix="pitch"/>
+
+  <!-- =============== Gazebo =============== -->
+  <gazebo>
+    <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+    <robotNamespace>/4ws_auto_infantry</robotNamespace>
+    <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+    <legacyModeNS>true</legacyModeNS>
+    </plugin>
+  </gazebo>
+
+  <!-- Base -->
+  <xacro:base_gazebo_v0/>
+
+  <!-- IMU -->
+  <xacro:imu_gazebo_v0 prefix = "imu"/>
+  
+    <!-- LIDAR 1-->
+  <xacro:lidar_gazebo_v0 prefix ="lidar_1"/>
+  
+    <!-- LIDAR 2-->
+  <xacro:lidar_gazebo_v0 prefix ="lidar_2"/>
+  
+  <!-- CAMERA -->
+   <xacro:camera_gazebo_v0 prefix ="camera"/>
+
+  <!-- Wheel -->
+  <xacro:wheel_gazebo_v0 prefix="fr"/>
+  <xacro:wheel_gazebo_v0 prefix="fl"/>
+  <xacro:wheel_gazebo_v0 prefix="br"/>
+  <xacro:wheel_gazebo_v0 prefix="bl"/>
+
+  <!-- Steering -->
+  <xacro:steering_gazebo_v0 prefix="fr"/>
+  <xacro:steering_gazebo_v0 prefix="fl"/>
+  <xacro:steering_gazebo_v0 prefix="bl"/>
+  <xacro:steering_gazebo_v0 prefix="br"/>
+  
+    <!-- Gimbal -->
+  <xacro:steering_gazebo_v0 prefix="yaw"/>
+  <xacro:steering_gazebo_v0 prefix="pitch"/>
+  
+
+</robot>

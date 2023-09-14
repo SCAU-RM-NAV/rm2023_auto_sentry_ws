@@ -1,0 +1,35 @@
+<launch>
+  <!-- these are the arguments you can pass this launch file, for example paused:=true -->
+  <arg name="paused" default="true"/>
+<!--   <arg name="use_sim_time" default="true"/> -->
+  <arg name="gui" default="true"/>
+  <arg name="headless" default="false"/>
+  <arg name="debug" default="false"/>
+  <!-- <remap from="robot/laser/scan" to="/scan"/> -->
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find 4ws_auto_infantry)/empty_world.world"/>
+    <arg name="debug" value="$(arg debug)" />
+    <arg name="gui" value="$(arg gui)" />
+  </include>
+
+  <node
+    name="spawn_model"
+    pkg="gazebo_ros"
+    type="spawn_model"
+    args="-file $(find rmus_map_2)/urdf/rmus_map_2.urdf -urdf -model rmus_map_2"
+    output="screen" />
+  
+  <!-- Load the URDF into the ROS Parameter Server -->
+  <arg name="model" default="$(find simple_meca_car)/urdf/waking_robot.xacro" />
+ 
+  <param name="robot_description" command="$(find xacro)/xacro  --inorder $(arg model)" />
+ 
+  <!-- Run a python script to send a service call the gazebo_ros to spawn a URDF robot -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen"
+	args="-urdf -model robot -param robot_description -x 7.5 -y 6.0 -z 0.25 -R 0 -P 0 -Y 1.57"/> 
+
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+</launch>

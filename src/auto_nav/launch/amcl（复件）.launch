@@ -1,0 +1,39 @@
+<launch>
+
+    <node pkg="amcl" type="amcl" name="amcl" output="screen">
+        <param name="odom_frame_id" value="/odom"/>
+        <param name="odom_model_type" value="diff-corrected"/>
+        <!--<param name="odom_model_type" value="omni-corrected"/>-->
+        <param name="base_frame_id" value="/base_footprint"/>
+        <param name="global_frame_id" value="/map"/>
+    
+        <!--transform tolerance-->
+        <param name="transform_tolerance" value="0.9"/>
+    
+        <!--overall filter-->
+        <param name="min_particles" value="150"/>
+        <param name="max_particles" value="400"/>
+        <param name="initial_pose_x" value="0.0"/>
+        <param name="initial_pose_y" value="0.0"/>
+        <param name="initial_pose_a" value="0.0"/>
+        <param name="update_min_d" value="0.1"/>
+        <param name="updata_min_a" value="0.1"/>
+    
+        <!--likelihood_field of laser 1 25 -->
+        <param name="laser_min_range" value="-1.0"/>
+        <param name="laser_max_range" value="-1.0"/>
+        <param name="laser_max_beams" value="30"/>
+        <param name="laser_z_hit" value="0.95"/>
+        <param name="laser_z_rand" value="0.05"/>
+    
+        <!--Odometry-->
+        <param name="odom_model_type" value="omni"/>
+        <param name="odom_alpha1" value="0.2"/>
+        <param name="odom_alpha2" value="0.2"/>
+        <param name="odom_alpha3" value="0.2"/>
+        <param name="odom_alpha4" value="0.2"/>
+        <param name="odom_alpha5" value="0.2"/>
+    </node>
+
+</launch>
+

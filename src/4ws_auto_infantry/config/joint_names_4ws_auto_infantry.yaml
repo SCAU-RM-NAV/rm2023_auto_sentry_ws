@@ -1,0 +1,1 @@
+controller_joint_names: ['', 'fr_steering_joint', 'fr_wheel_joint', 'fl_steering_joint', 'fl_wheel_joint', 'bl_steering_joint', 'bl_wheel_joint', 'br_steering_joint', 'br_wheel_joint', 'yaw_steering_joint', 'pitch_steering_joint',  ]

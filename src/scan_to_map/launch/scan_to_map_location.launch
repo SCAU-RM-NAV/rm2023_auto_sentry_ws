@@ -1,0 +1,66 @@
+
+
+<launch>
+
+    <!-- bag的地址与名称 -->
+    <!-- <arg name="bag_filename" default="/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/lesson3.bag"/> -->
+
+    <!-- <arg name="bag_filename" default="/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/simulation_laser_map.bag"/> -->
+
+    <!-- 使用bag的时间戳 -->
+    <param name="use_sim_time" value="true" />
+
+    <!-- base_link to front_laser_link -->
+    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="link_broadcaster" 
+        args="0 0 0.254 0 0 3.1415926 base_link front_laser_link" /> -->
+
+    <!-- 启动 plicp_odometry 节点 -->
+    <node name="scan_to_map"
+        pkg="scan_to_map" type="scan_to_map_location_node" output="screen"  respawn="true" >
+
+        <param name="if_debug" value="false" />  
+
+        <param name="odom_frame" value="odom" />  
+        <param name="base_frame" value="base_link" />  
+        <param name="map_frame" value="map" />  
+        <param name="lidar_frame" value="laser_frame" />   
+
+        <param name="Variance_X" value="0.2" />  
+        <param name="Variance_Y" value="0.2" />  
+        <param name="Variance_Yaw" value="1" />  
+
+        <param name="SCORE_THRESHOLD_MIN" value="0.004" />  <!--//代价阈值，代价低于此值则发送定位-->
+        <param name="SCORE_THRESHOLD_MAX" value="0.1" />  <!--//达到最大迭代次数后，代价仍高于此值，认为无法收敛-->
+        <param name="SCORE_THRESHOLD_DIFF" value="1e-4" />  <!--代价差分阈值，两次代价之差低于此值则发送定位-->
+        <param name="ANGLE_SPEED_THRESHOLD" value="7" />  <!--//角速度阈值，角速度大于此值则不发送定位-->
+        <param name="ANGLE_THRESHOLD" value="0.01" />  <!--//最小变换角度-->
+        <param name="ANGLE_UPPER_THRESHOLD_" value="10" />  <!--//最小变换角度-->
+    
+        <param name="DIST_THRESHOLD" value="0.01" />  <!--//最小变换距离-->
+
+        <param name="ICP_NUM_ITER" value="30" />  <!--最大迭代次数-->
+
+        <param name="Use_TfTree_Always" value="true" />  
+        <!-- 设置在进行统计时考虑查询点邻近点数 -->
+        <param name="OutlierRemoval_MeanK" value="30" />
+        <!-- //设置判断是否为离群点 的 阈值  设置为1的 话 表示为：如果一个点的距离超过平均距离一个标准差以上则为离群点 -->
+        <param name="OutlierRemoval_StddevMulThresh" value="0.5" />  
+        <!-- 如果雷达点云中点在地图点云最近点大于此值，就认为该点为障碍点，有最大和最小值，会随着icp迭代的SCORE值按比例进行更新 -->
+        <param name="ObstacleRemoval_Distance_Max" value="1.0" />  
+        <param name="ObstacleRemoval_Distance_Min" value="0.1" />  
+        
+        <param name="VoxelGridRemoval_LeafSize" value="0.1" />  
+    </node>
+
+    <!-- <include file="$(find auto_nav)/launch/amcl.launch"/> -->
+    <include file="$(find scan_to_map)/launch/robot_localization_icp.launch"/>
+
+    <!-- launch rviz -->
+    <!-- <node name="rviz" pkg="rviz" type="rviz" required="true"
+        args="-d $(find scan_to_map)/config/simulation_laser_map.rviz" /> -->
+
+    <!-- play bagfile -->
+    <!-- <node name="playbag" pkg="rosbag" type="play"
+        args="clock $(arg bag_filename)" /> -->
+
+</launch>

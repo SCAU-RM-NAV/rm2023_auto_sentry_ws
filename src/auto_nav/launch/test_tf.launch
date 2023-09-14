@@ -1,0 +1,5 @@
+<launch>
+
+<node pkg="tf" type="static_transform_publisher" name="map_enemy_broadcaster" args="2.0 -3.0 0 0 0 0 /camera_link /enemy2_link 10" />
+
+</launch>

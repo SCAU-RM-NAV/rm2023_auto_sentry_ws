@@ -1,0 +1,12 @@
+<launch>
+
+  <!-- robot_localization EKF node for the map frame -->
+  <node pkg="robot_localization" type="ekf_localization_node" name="robot_localization_ekf_node_map"  clear_params="true" respawn="true" >
+    <remap from="rosout" to="/rosout_disabled" />
+    <!-- <remap from="cmd_vel" to="base_vel"/> -->
+    <remap from="set_pose" to="initialpose"/>
+    <rosparam command="load" file="$(find scan_to_map)/param/robot_localization.yaml" />
+  </node>
+
+</launch> 
+

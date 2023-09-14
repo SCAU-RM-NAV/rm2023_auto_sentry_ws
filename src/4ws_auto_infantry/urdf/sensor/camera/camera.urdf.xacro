@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="camera">
+
+<xacro:include filename="$(find 4ws_auto_infantry)/urdf/sensor/camera/camera.gazebo.xacro"/>
+
+    <xacro:macro name="camera_v0" params="prefix:=camera parent *joint_origin">
+        <!-- Create imu reference frame -->
+	<joint name="${prefix}_joint" type="fixed">
+	  <xacro:insert_block name="joint_origin"/>
+	  <parent link="${parent}"/>
+	  <child link="${prefix}_link"/>
+     	  <axis xyz="0 0 0" />
+	</joint>
+       
+        <link name="${prefix}_link">
+            <inertial>
+      <origin
+        xyz="-0.0333625192776818 7.78704694743004E-05 1.8912045142816E-05"
+        rpy="0 0 0" />
+      <mass
+        value="0.135798863176648" />
+      <inertia
+        ixx="1.71413025492174E-05"
+        ixy="4.60151773237999E-07"
+        ixz="4.95362807343211E-08"
+        iyy="5.9443792104674E-05"
+        iyz="8.80056228730057E-08"
+        izz="5.95685810229894E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4ws_auto_infantry/meshes/cam_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://4ws_auto_infantry/meshes/cam_link.STL" />
+      </geometry>
+    </collision>
+        </link>
+        
+
+    </xacro:macro>
+</robot>

@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="gps">
+
+	
+
+    <xacro:macro name="gps_v0" params="prefix:=gps parent *joint_origin">
+        <!-- Create imu reference frame -->
+	<joint name="${prefix}_joint" type="fixed">
+	  <xacro:insert_block name="joint_origin"/>
+	  <parent link="${parent}"/>
+	  <child link="${prefix}_link"/>
+     	  <axis xyz="0 0 0" />
+	</joint>
+
+        <link name="${prefix}_link">
+            <inertial>
+                <mass value="0.1" />
+                <origin xyz="0 0 0" />
+                <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+                         iyy="0.01" iyz="0.0"
+                         izz="0.01" />
+            </inertial>
+
+            <visual>
+                <origin xyz=" 0 0 0 " rpy="0 0 0" />
+                <geometry>
+                   <mesh
+          		filename="package://4ws_car/meshes/GPS_Link.STL" />
+                </geometry>
+                <material name="black"/>
+            </visual>
+
+            <collision>
+                <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+                <geometry>
+                  <mesh
+          		filename="package://4ws_car/meshes/GPS_Link.STL" /> 
+                </geometry>
+            </collision>
+        </link>
+	
+ </xacro:macro>
+</robot>

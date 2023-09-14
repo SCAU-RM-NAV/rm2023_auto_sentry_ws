@@ -1,0 +1,26 @@
+std_msgs/Header header
+
+  float64 game_type
+  float64 game_progress
+  float64 shooter_cooling_rate
+  float64 shooter_speed_limit
+  float64 shooter_cooling_limit
+  float64 robot_id
+  float64 remain_HP
+  float64 max_HP
+  float64 armor_id
+  float64 hurt_type
+  float64 bullet_freq
+  float64 bullet_speed
+  float64 bullet_remaining_num
+  float64 key_board
+  float64 other_robot_id
+  float64 tgx
+  float64 tgy
+  float64 tgz
+  float64 blue_x
+  float64  blue_y
+  float64  blue_confiden
+  float64 red_x
+  float64  red_y
+  float64  red_confiden

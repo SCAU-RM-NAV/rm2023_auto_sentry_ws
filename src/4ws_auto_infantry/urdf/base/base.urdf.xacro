@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+<xacro:include filename="$(find 4ws_auto_infantry)/urdf/base/base.gazebo.xacro"/>
+
+  <xacro:macro name="base_v0" params="parent *joint_origin">
+    <joint name="base_link_joint" type="fixed">
+      <xacro:insert_block name="joint_origin"/>
+      <parent link="${parent}"/>
+      <child link="base_link"/>
+    </joint>
+    <link name="base_link">
+      <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0"
+        />
+        <geometry>
+          <mesh
+            filename="package://4ws_auto_infantry/meshes/base_link.STL" />
+        </geometry>
+        <material
+          name="">
+          <color
+            rgba="1 1 1 1" />
+        </material>
+      </visual>
+      <collision>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh
+            filename="package://4ws_auto_infantry/meshes/base_link.STL" />
+        </geometry>
+      </collision>
+      <inertial>
+      <origin
+        xyz="-0.0153424786189024 -0.000971517176663675 0.0426010747913751"
+        rpy="0 0 0" />
+      <mass
+        value="1.22694944659058" />
+      <inertia
+        ixx="0.00592574713878002"
+        ixy="-6.04761148016892E-07"
+        ixz="3.19931122890849E-06"
+        iyy="0.00556528018404505"
+        iyz="5.11170604999262E-06"
+        izz="0.00777661011235666" />
+    </inertial>
+    </link>
+  </xacro:macro>
+
+</robot>

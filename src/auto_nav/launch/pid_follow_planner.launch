@@ -1,0 +1,22 @@
+<launch>
+
+
+    <!-- Run the local trajectory planner -->
+    <node pkg="auto_nav" type="pid_position_follow" name="pid_position_follow" respawn="true" output="screen" >
+        <param name="global_frame" value="map"/>
+        <param name="plan_frequency" value="50"/>
+        <param name="max_x_speed" value="1"/>
+        <param name="max_y_speed" value="1"/>
+        <param name="set_yaw_speed" value="1"/>
+        <param name="goal_dist_tolerance" value="0.25"/>
+        <param name="prune_ahead_distance" value="0.6"/>
+        <param name="p_value" value="1.5"/>
+        <param name="i_value" value="1.0"/>
+        <param name="d_value" value="1.0"/>
+        <remap from="/base_vel" to="/cmd_vel" />
+        
+    </node>
+
+    
+
+</launch>

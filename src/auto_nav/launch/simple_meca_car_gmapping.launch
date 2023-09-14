@@ -1,0 +1,43 @@
+<launch>
+    <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+      <param name="pub_map_odom_transform" value="true"/>
+      <remap from="scan" to="/scan"/>
+      <param name="base_frame" value="/base_footprint"/> <!--机器人底盘坐标系基框架，附带在移动底盘的框架，原点-->
+      <param name="odom_frame" value="/odom"/> <!--里程计坐标系里程计框架，附带在里程计的框架-->
+      <param name="map_frame" value="map"/> <!--地图坐标系地图框架，附带在地图上的框架-->
+      <param name="map_update_interval" value="0.01"/><!--地图更新速度，秒0.01-->
+      <param name="maxUrange" value="10.0"/><!--激光最大可用距离-->
+      <param name="maxRange" value="12.0"/><!--zuida juli-->	
+      <param name="sigma" value="0.05"/>
+      <param name="kernelSize" value="3"/><!--moren:1-->
+      <param name="lstep" value="0.05"/> 
+      <param name="astep" value="0.05"/>
+      <param name="iterations" value="5"/>
+      <param name="lsigma" value="0.075"/>
+      <param name="ogain" value="3.0"/>
+      <param name="lskip" value="0"/>
+      <param name="srr" value="0.1"/>
+      <param name="srt" value="0.2"/>
+      <param name="str" value="0.1"/>
+      <param name="stt" value="0.2"/>
+      <param name="minimumScore" value="0"/>
+      <param name="linearUpdate" value="0.05"/><!--线速度角速度在地图的更新-->
+      <param name="angularUpdate" value="0.0436"/>
+      <param name="temporalUpdate" value="-1"/><!--moren:-1-->
+      <param name="resampleThreshold" value="0.5"/>
+      <param name="particles" value="8"/><!--moren:30 gaicheng:8-->
+      <param name="xmin" value="-50.0"/>
+      <param name="ymin" value="-50.0"/>
+      <param name="xmax" value="50.0"/>
+      <param name="ymax" value="50.0"/>
+      <param name="delta" value="0.05"/>
+      <param name="llsamplerange" value="0.01"/> 
+      <param name="llsamplestep" value="0.01"/>
+      <param name="lasamplerange" value="0.005"/>
+      <param name="lasamplestep" value="0.005"/>
+      <!--param name="transform_publish_period" value="0.01"/-->
+    </node>
+
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find auto_nav)/config/rviz/auto_gmapping.rviz"/>
+</launch>
+
