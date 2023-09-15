@@ -1,6 +1,6 @@
 ## scan to map 参数
 if_debug: false
-save_pcd: true
+save_pcd: false
 
 # 坐标系
 odom_frame: "odom"

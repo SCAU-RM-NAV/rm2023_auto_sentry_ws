@@ -2,21 +2,8 @@
 
 <launch>
 
-    <!-- bag的地址与名称 -->
-    <!-- <arg name="bag_filename" default="/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/lesson3.bag"/> -->
-
-    <!-- <arg name="bag_filename" default="/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/simulation_laser_map.bag"/> -->
-
     <!-- 使用bag的时间戳 -->
     <param name="use_sim_time" value="true" />
-
-    <!-- base_link to front_laser_link -->
-    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="link_broadcaster" 
-        args="0 0 0.254 0 0 3.1415926 base_link front_laser_link" /> -->
-
-    <!-- 启动 plicp_odometry 节点 -->
-    <!-- <node name="scan_to_map"
-        pkg="scan_to_map" type="scan_to_map_location_node" respawn="true" > -->
     <node name="scan_to_map"
         pkg="scan_to_map" type="scan_to_map_location_node" output="screen"  respawn="true" >
         <rosparam file="$(find scan_to_map)/param/icp_params.yaml" command="load"/>
@@ -24,13 +11,5 @@
 
     <!-- <include file="$(find auto_nav)/launch/amcl.launch"/> -->
     <include file="$(find scan_to_map)/launch/robot_localization_icp.launch"/>
-
-    <!-- launch rviz -->
-    <!-- <node name="rviz" pkg="rviz" type="rviz" required="true"
-        args="-d $(find scan_to_map)/config/simulation_laser_map.rviz" /> -->
-
-    <!-- play bagfile -->
-    <!-- <node name="playbag" pkg="rosbag" type="play"
-        args="clock $(arg bag_filename)" /> -->
 
 </launch>

@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-    <node
-      name="rviz"
-      pkg="rviz"
-      type="rviz"
-      args="-d $(find 4ws_auto_infantry)/config/taurus_4ws.rviz" />
-</launch>

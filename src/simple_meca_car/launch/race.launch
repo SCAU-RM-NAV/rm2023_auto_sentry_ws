@@ -8,7 +8,7 @@
   <!-- <remap from="robot/laser/scan" to="/scan"/> -->
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find 4ws_auto_infantry)/empty_world.world"/>
+    <arg name="world_name" value="$(find simple_meca_car)/empty_world.world"/>
     <arg name="debug" value="$(arg debug)" />
     <arg name="gui" value="$(arg gui)" />
   </include>
@@ -17,7 +17,7 @@
     name="spawn_model"
     pkg="gazebo_ros"
     type="spawn_model"
-    args="-file $(find rmus_map_2)/urdf/rmus_map_2.urdf -urdf -model rmus_map_2"
+    args="-file $(find simple_meca_car)/urdf/rmus_map_2.urdf -urdf -model simple_meca_car"
     output="screen" />
   
   <!-- Load the URDF into the ROS Parameter Server -->
