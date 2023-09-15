@@ -109,8 +109,7 @@ odom0_differential: true
 # odom0_twist_rejection_threshold: 0.8
 
 
-
-imu0: /IMU_data
+imu0: /imu
 #NOTE: If you find that your robot has x drift,
 #the most likely candidate is the x’’ (acceleration) fr$
 #Just set it to false! (It’s the first entry on the las$

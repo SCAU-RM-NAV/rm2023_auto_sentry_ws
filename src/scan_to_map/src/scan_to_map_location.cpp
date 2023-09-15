@@ -96,7 +96,7 @@ void Scan2MapLocation::InitParams()
     private_node_.param<double>("ObstacleRemoval_Distance_Max", ObstacleRemoval_Distance_Max, 2);     //最大距离
 
     // 定位禁区、
-    private_node_.param<std::vector<double>>("location_restricted_zone", location_restricted_zone_, {1,2,3});
+    private_node_.param<std::vector<double>>("location_restricted_zone", location_restricted_zone_, {});
     // std::cout << location_restricted_zone_[0] << std::endl;
 
     // 重定位

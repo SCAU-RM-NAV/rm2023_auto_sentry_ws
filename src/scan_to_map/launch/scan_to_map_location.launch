@@ -19,7 +19,7 @@
         pkg="scan_to_map" type="scan_to_map_location_node" respawn="true" > -->
     <node name="scan_to_map"
         pkg="scan_to_map" type="scan_to_map_location_node" output="screen"  respawn="true" >
-        <rosparam file="$(find scan_to_map)/config/icp_params.yaml" command="load"/>
+        <rosparam file="$(find scan_to_map)/param/icp_params.yaml" command="load"/>
     </node>
 
     <!-- <include file="$(find auto_nav)/launch/amcl.launch"/> -->

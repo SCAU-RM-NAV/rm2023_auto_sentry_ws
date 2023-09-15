@@ -1,6 +1,0 @@
-{
-    "python.autoComplete.extraPaths": [
-        "/home/michael/4ws_auto_infantry_ws/devel/lib/python3/dist-packages",
-        "/opt/ros/noetic/lib/python3/dist-packages"
-    ]
-}

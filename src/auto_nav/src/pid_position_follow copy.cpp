@@ -1,6 +1,5 @@
 #include "pid_position_follow.h"
 
-
 RobotCtrl::RobotCtrl()
 {
     ros::NodeHandle nh("~");;
@@ -18,12 +17,14 @@ RobotCtrl::RobotCtrl()
     nh.param<double>("prune_ahead_distance", prune_ahead_dist_, 0.5);
     nh.param<std::string>("global_frame", global_frame_, "map");
 
-    gimbal_yaw_position_cmd_ = nh.advertise<std_msgs::Float64>("/auto_car/yaw_steering_position_controller/command",10);
-    gimbal_pitch_position_cmd_ = nh.advertise<std_msgs::Float64>("/auto_car/pitch_steering_position_controller/command",10);
+
+    gimbal_yaw_position_cmd_ = nh.advertise<std_msgs::Float64>("/4ws_auto_infantry/yaw_steering_position_controller/command",10);
+    gimbal_pitch_position_cmd_ = nh.advertise<std_msgs::Float64>("/4ws_auto_infantry/pitch_steering_position_controller/command",10);
     local_path_pub_= nh.advertise<nav_msgs::Path>("path", 5);
     global_path_sub_ = nh.subscribe("/move_base/GlobalPlanner/plan", 5, &RobotCtrl::GlobalPathCallback,this);
+    game_state_sub_ = nh.subscribe("/game_state",5,&RobotCtrl::Game_StateCallback,this);
     cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("/base_vel",10);
-    imu_sub_ = nh.subscribe("/IMU_data", 1, &RobotCtrl::ImuCallback, this);
+    imu_sub_ = nh.subscribe("/imu", 1, &RobotCtrl::ImuCallback, this);
     jointstate_sub_ = nh.subscribe("/joint_states",10, &RobotCtrl::JointstateCallback,this);
 
     tf_listener_ = std::make_shared<tf::TransformListener>();
@@ -33,8 +34,16 @@ RobotCtrl::RobotCtrl()
 }
 
 void RobotCtrl::Plan(const ros::TimerEvent& event){
+            
 
-            if (plan_){
+            if (game_state_ == 4 )
+            {   
+
+            geometry_msgs::PoseStamped robot_pose_1;
+            GetGlobalRobotPose(tf_listener_, "map", robot_pose_1); 
+            yaw_ = tf::getYaw(robot_pose_1.pose.orientation);
+            //std::cout<<"yaw_"<<yaw_<<std::endl;         
+            if (plan_ ){
 
                 auto begin = std::chrono::steady_clock::now();
                 auto start = ros::Time::now();
@@ -120,6 +129,18 @@ void RobotCtrl::Plan(const ros::TimerEvent& event){
             }
 
         }
+    
+    else{
+                geometry_msgs::Twist cmd_vel;
+                    cmd_vel.linear.x = 0;
+                    cmd_vel.linear.y = 0;
+                    cmd_vel.angular.z = 0;
+                    cmd_vel.linear.z = 0;   // bool success or not
+                    cmd_vel_pub_.publish(cmd_vel);
+                    GimbalCtrl();
+
+    }
+}
 
 
 
@@ -165,6 +186,9 @@ void RobotCtrl::FollowTraj(const geometry_msgs::PoseStamped& robot_pose,
                         const nav_msgs::Path& traj,
                         geometry_msgs::Twist& cmd_vel){
 
+              
+
+
             //double diff_yaw = GetYawFromOrientation(traj.poses[0].pose.orientation)- GetYawFromOrientation(robot_pose.pose.orientation);
             double diff_yaw = atan2((traj.poses[1].pose.position.y-robot_pose.pose.position.y ),( traj.poses[1].pose.position.x-robot_pose.pose.position.x));
             
@@ -177,14 +201,24 @@ void RobotCtrl::FollowTraj(const geometry_msgs::PoseStamped& robot_pose,
                 diff_yaw += 2*M_PI;
             }
 
-            printf("diff_yaw: %f\n",diff_yaw);
-            printf("diff_distance: %f\n",diff_distance);
+            //printf("diff_yaw: %f\n",diff_yaw);
+            //printf("diff_distance: %f\n",diff_distance);
 
             double vx_global = max_x_speed_*cos(diff_yaw)*p_value_;//*diff_distance*p_value_;
             double vy_global = max_y_speed_*sin(diff_yaw)*p_value_;//*diff_distance*p_value_;
+            
+            
+            
+           
+           
+           // std::cout<<"vx_gl  "<<vx_global<<"   vy_gl   "<<vy_global<<std::endl;
+            
 
-            cmd_vel.linear.x = vx_global * cos(yaw_) - vy_global * sin(yaw_);
-            cmd_vel.linear.y = vx_global * sin(yaw_) + vy_global * cos(yaw_);
+              //vx_ = filter_VX_ * cos(yaw_) - filter_VY_ * sin(yaw_);
+              //vy_ = filter_VX_ * sin(yaw_) + filter_VY_ * cos(yaw_);
+
+            cmd_vel.linear.x = vx_global * cos(yaw_) + vy_global * sin(yaw_);
+            cmd_vel.linear.y =  -vx_global * sin(yaw_) + vy_global * cos(yaw_);
             cmd_vel.angular.z = set_yaw_speed_;
 
         }
@@ -198,28 +232,37 @@ void RobotCtrl::GlobalPathCallback(const nav_msgs::PathConstPtr & msg){
   }
 }
 
+void RobotCtrl::Game_StateCallback(const roborts_msgs::GameStatusPtr &msg ){
+    game_state_ = msg->game_state;
+}
+
+
 void RobotCtrl::JointstateCallback(const sensor_msgs::JointStateConstPtr &msg){
-  cur_gimbal_yaw_position = msg->position.at(0);
-  cur_gimbal_pitch_position = msg->position.at(1);
+  cur_gimbal_yaw_position = msg->position.at(8);
+  cur_gimbal_pitch_position = msg->position.at(10);
 }
 
 
 void RobotCtrl::ImuCallback(const sensor_msgs::Imu &msg)
 {
-  yaw_ = tf2::getYaw(msg.orientation);
+  int a;
+ // yaw_ = tf2::getYaw(msg.orientation);
   //ROS_INFO("imu_yaw:%f",yaw_);
 }
 
 void RobotCtrl::GimbalCtrl()
 {
+
+   
   a_gimbal_pitch_position = 0;
-  a_gimbal_yaw_position = yaw_;
+  a_gimbal_yaw_position = -1 * yaw_;
 
   std_msgs::Float64 cmd;
   cmd.data = a_gimbal_pitch_position;
   gimbal_pitch_position_cmd_.publish(cmd);
   cmd.data = a_gimbal_yaw_position;
   gimbal_yaw_position_cmd_.publish(cmd);
+  
 
 }
 

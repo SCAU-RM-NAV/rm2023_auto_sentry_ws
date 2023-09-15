@@ -23,7 +23,6 @@
 #include <chrono>
 
 #include <roborts_msgs/GameStatus.h>
-#include <roborts_msgs/PidPlannerStatus.h>
 
 class RobotCtrl {
     public:
@@ -34,9 +33,6 @@ class RobotCtrl {
     void GimbalCtrl();
     void GlobalPathCallback(const nav_msgs::PathConstPtr & msg);
     void Game_StateCallback(const roborts_msgs::GameStatusPtr &msg );
-
-    bool Follower_StateReq(roborts_msgs::PidPlannerStatus::Request& req, roborts_msgs::PidPlannerStatus::Response& resp);
-
     void FollowTraj(const geometry_msgs::PoseStamped& robot_pose,
                         const nav_msgs::Path& traj,
                         geometry_msgs::Twist& cmd_vel);
@@ -54,8 +50,6 @@ private:
     ros::Subscriber jointstate_sub_;
     ros::Subscriber game_state_sub_;
     ros::Timer plan_timer_;
-
-    ros::ServiceServer planner_server_;
 
     std::shared_ptr<tf::TransformListener> tf_listener_;
     tf::StampedTransform global2path_transform_;
@@ -88,8 +82,8 @@ private:
 
     double yaw_;  //机器人航向角
     
-    uint8_t game_state_ = 4;
-    int planner_state_ = 2;   //规划状态 0：静止  1：原地小陀螺  2：路径跟踪
+    uint8_t game_state_;
+
 
 };
 
