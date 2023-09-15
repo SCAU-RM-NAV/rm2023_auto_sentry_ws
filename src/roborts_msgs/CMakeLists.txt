@@ -14,11 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
         DIRECTORY msg
         FILES
-  GimbalFdb.msg
-  GimbalCtrl.msg
   GameStatus.msg
-  EnemyInfo.msg
-  EnemyLocate.msg
   RobotStatus.msg
   LocationInfo.msg
 )

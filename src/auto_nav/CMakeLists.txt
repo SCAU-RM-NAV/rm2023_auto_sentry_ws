@@ -102,10 +102,6 @@ find_package(Eigen3 REQUIRED)
 #   cfg/DynReconf2.cfg
 # )
 
- generate_dynamic_reconfigure_options(
-   cfg/tracks_follow.cfg
- )
-
 ###################################
 ## catkin specific configuration ##
 ###################################
@@ -158,8 +154,6 @@ include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 add_executable(pid_position_follow src/pid_position_follow.cpp)
 target_link_libraries(pid_position_follow ${catkin_LIBRARIES})
 
-
-add_dependencies(pid_position_follow ${PROJECT_NAME}_gencfg)
 
 
 #test
