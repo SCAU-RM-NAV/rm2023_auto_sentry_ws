@@ -1,22 +1,12 @@
 <launch>
 
   <param name="use_sim_time" value="false" />
-
-  <!-- robot_localization EKF node for the odom frame -->
-  <!-- <node pkg="robot_localization" type="ekf_localization_node" name="robot_localization_ekf_node_odom"  clear_params="true" respawn="true" output="log"> -->
-    <!-- <remap from="cmd_vel" to="base_vel"/> -->
-    <!-- <remap from="set_pose" to="initialpose"/> -->
-    <!-- <rosparam command="load" file="$(find scan_to_map)/config/ekf_odom_param.yaml" /> -->
-  <!-- </node> -->
-
-
-<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="static_tf_publisher"
-    args="0 0 0 0 0 0 1 map odom" /> -->
-
   <!-- robot_localization EKF node for the map frame -->
   <node pkg="robot_localization" type="ekf_localization_node" name="robot_localization_ekf_node_map"  clear_params="true" respawn="true" output="log">
+    <!-- <remap from="rosout" to="/rosout_disabled" /> -->
+    <!-- <remap from="cmd_vel" to="base_vel"/> -->
     <remap from="set_pose" to="initialpose"/>
-    <rosparam command="load" file="$(find scan_to_map)/config/ekf_map_param.yaml" />
+    <rosparam command="load" file="$(find scan_to_map)/param/robot_localization.yaml" />
   </node>
 
 </launch> 

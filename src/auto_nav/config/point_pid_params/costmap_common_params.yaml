@@ -3,7 +3,7 @@
 #---(in meters)---
 #footprint: [ [0.254, -0.0508], [0.1778, -0.0508], [0.1778, -0.1778], [-0.1905, -0.1778], [-0.254, 0], [-0.1905, 0.1778], [0.1778, 0.1778], [0.1778, 0.0508], [0.254, 0.0508] ]
 #footprint: [ [-0.2,-0.2], [0.2,-0.2], [0.2,0.2], [-0.2,0.2] ]
-robot_radius: 0.4
+robot_radius: 0.2
 
 transform_tolerance: 0.2
 
@@ -18,11 +18,14 @@ obstacle_layer:
  observation_sources: laser_scan_sensor
  laser_scan_sensor: {data_type: LaserScan, topic: /scan, marking: true, clearing: true}
 
+#  observation_sources: pointcloud2_sensor
+#  pointcloud2_sensor: {data_type: PointCloud2, topic: /icp_pointcloud, marking: true, clearing: true}
+
 
 inflation_layer:
   enabled:              true
-  cost_scaling_factor:  20.0  # exponential rate at which the obstacle cost drops off (default: 10)
-  inflation_radius:     0.6  # max. distance from an obstacle at which costs are incurred for planning paths.
+  cost_scaling_factor:  8.0  # exponential rate at which the obstacle cost drops off (default: 10)
+  inflation_radius:     1.0  # max. distance from an obstacle at which costs are incurred for planning paths.
 
 static_layer:
   enabled:              true

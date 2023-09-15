@@ -129,6 +129,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 
+
+link_directories(/usr/local/lib)
+include_directories(/usr/local/include/yaml-cpp)
 include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 
 ## Declare a C++ library
@@ -154,6 +157,10 @@ include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
 
 add_executable(pid_position_follow src/pid_position_follow.cpp)
 target_link_libraries(pid_position_follow ${catkin_LIBRARIES})
+
+
+add_dependencies(pid_position_follow ${PROJECT_NAME}_gencfg)
+
 
 #test
 ## Add cmake target dependencies of the executable

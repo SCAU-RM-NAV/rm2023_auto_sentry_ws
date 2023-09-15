@@ -12,10 +12,7 @@ Scan2MapLocation::Scan2MapLocation() : private_node_("~"), tf_listener_(tfBuffer
 
     map_subscriber_ = node_handle_.subscribe("map", 1, &Scan2MapLocation::MapCallback, this);
 
-    odom_subscriber_ = node_handle_.subscribe("/odom", 20, &Scan2MapLocation::OdomCallback,
-                                                 this,  ros::TransportHints().tcpNoDelay());
-
-    imu_subscriber_ = node_handle_.subscribe("/IMU_data", 20, &Scan2MapLocation::IMUCallback,
+    odom_subscriber_ = node_handle_.subscribe("odom", 20, &Scan2MapLocation::OdomCallback,
                                                  this,  ros::TransportHints().tcpNoDelay());
 
     map_pointcloud_publisher_ = node_handle_.advertise<sensor_msgs::PointCloud2>("map_pointcloud", 10);
@@ -25,8 +22,6 @@ Scan2MapLocation::Scan2MapLocation() : private_node_("~"), tf_listener_(tfBuffer
     removal_pointcloud_publisher_ = node_handle_.advertise<sensor_msgs::PointCloud2>("removal_pointcloud", 10);
 
     map_scan_publisher_ = node_handle_.advertise<sensor_msgs::LaserScan>("map_scan", 10);
-
-    region_marker_pub_ = node_handle_.advertise<visualization_msgs::Marker>("/location_exclusion_region_marker", 1);
 
     // 注意，这里的发布器，发布的数据类型为 PointCloudT
     // ros中自动做了 PointCloudT 到 sensor_msgs/PointCloud2 的数据类型的转换
@@ -101,7 +96,8 @@ void Scan2MapLocation::InitParams()
     private_node_.param<double>("ObstacleRemoval_Distance_Max", ObstacleRemoval_Distance_Max, 2);     //最大距离
 
     // 定位禁区、
-    private_node_.param<std::vector<double>>("location_exclusion_region", location_exclusion_region_, {});
+    private_node_.param<std::vector<double>>("location_restricted_zone", location_restricted_zone_, {1,2,3});
+    // std::cout << location_restricted_zone_[0] << std::endl;
 
     // 重定位
     private_node_.param<double>("Relocation_Weight_Score", Relocation_Weight_Score_, 0.5);     //重定位分数系数
@@ -125,21 +121,6 @@ void Scan2MapLocation::OdomCallback(const nav_msgs::Odometry::ConstPtr &odometry
     if (odom_queue_.size() > odom_queue_length_)    //弹出超过长度的数据
     {
         odom_queue_.pop_front();
-    }
-}
-
-/*
- * IMU回调函数
-*/
-void Scan2MapLocation::IMUCallback(const sensor_msgs::Imu::ConstPtr &imu_msg)
-{
-    std::lock_guard<std::mutex> lock(imu_lock_);
-    imu_initialized_ = true;
-    imu_queue_.push_back(*imu_msg);
-    // std::cout << "time of imu_msg :" << imu_msg->header.stamp.toSec() << std::endl;
-    if (imu_queue_.size() > imu_queue_length_)    //弹出超过长度的数据
-    {
-        imu_queue_.pop_front();
     }
 }
 
@@ -193,7 +174,7 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
     scan_start_time_ = std::chrono::steady_clock::now();    //保存时间，用于最后计时
 
     //判断地图和里程计数据是否初始化，如果没有则退出
-    if (!map_initialized_ || !imu_initialized_)  
+    if (!map_initialized_ || !odom_initialized_)  
     {
         return;
     }
@@ -272,17 +253,11 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
     {
         scan_initialized_ = false;} //每次都使用tf读取结果
 
-    // 判断定位忽略区域是否正确并发布
-    if(!pubRegionByMarker(location_exclusion_region_))
+    if(is_coordinate_in_range(location_restricted_zone_,map_to_base_))
     {
-        ROS_ERROR_STREAM("The parameter exclusion_region_ does not meet requirements");
+        ROS_INFO_STREAM("\033[1;33m-into restricted area, stop icp match.\033[0m");
+        return;
     }
-    // // 判断是否在定位忽略区域，是则退出
-    // if(ifCoordinateInExclusionRegion(location_exclusion_region_,map_to_base_))
-    // {
-    //     ROS_INFO_STREAM("\033[1;33m-into restricted area, stop icp match.\033[0m");
-    //     return;
-    // }
 
     // 重定位
     if(need_relocalization){
@@ -291,17 +266,9 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
             need_relocalization = false;
             relocalization_result = true;
         }
-        else{
-            need_relocalization = false;
-            relocalization_result = false;
-        }
+        need_relocalization = false;
+        relocalization_result = false;
         return; 
-    }
-    // 判断是否在定位忽略区域，是则退出
-    else if (ifCoordinateInExclusionRegion(location_exclusion_region_,map_to_base_))
-    {
-        ROS_INFO_STREAM("\033[1;33m-into restricted area, stop icp match.\033[0m");
-        return;
     }
     else{   //正常定位
 
@@ -385,6 +352,7 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
  */
 bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::Ptr &cloud_scan_msg, PointCloudT::Ptr &cloud_map_msg)
 {
+
     pcl::IterativeClosestPoint<PointT, PointT> icp_;
     icp_.setTransformationEpsilon (1e-6);    //为中止条件设置最小转换差异
     icp_.setEuclideanFitnessEpsilon(1e-6);
@@ -410,17 +378,17 @@ bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::
     Eigen::Affine3f transfrom;
     transfrom = icp_.getFinalTransformation();
 
-
     // 将Eigen::Affine3f转换成x, y, theta, 并打印出来
     float x, y, z, roll, pitch, yaw;
     pcl::getTranslationAndEulerAngles(transfrom, x, y, z, roll, pitch, yaw);
+    // std::cout << "ICP transfrom: (" << x << ", " << y << ", " << yaw << ")" << std::endl;
 
     double tranDist = sqrt(x*x + y*y);
     double angleDist = abs(yaw);
 
     if (if_debug_){
     std::cout<< "tranDist:" << tranDist << " angleDist: " << angleDist 
-    << " score: " << icp_.getFitnessScore() << " angle speed: " << imu_queue_.back().angular_velocity.z << std::endl;
+    << " score: " << icp_.getFitnessScore() << " angle speed: " << odom_queue_.back().twist.twist.angular.z << std::endl;
     }
 
     roborts_msgs::LocationInfo location_info_msg;
@@ -428,7 +396,7 @@ bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::
     location_info_msg.point_cloud_quantity = cloud_scan_msg->points.size();
     location_info_msg.tranDist = tranDist;
     location_info_msg.angleDist = angleDist;
-    location_info_msg.angle_apeed = abs(imu_queue_.back().angular_velocity.z);
+    location_info_msg.angle_apeed = abs(odom_queue_.back().twist.twist.angular.z);
     location_info_msg.score = icp_.getFitnessScore();
 
     if (if_debug_){
@@ -444,7 +412,7 @@ bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::
         // \033[1;33m，\033[0m 终端显示成黄色
         std::cout << "\033[1;33m" << "Distance or point_Quantity out of threshold" << "\033[0m" << std::endl;
         std::cout << "\033[1;33m"  << "tranDist:" << tranDist << " angleDist: " << angleDist 
-        << " score: " << icp_.getFitnessScore() << " angle speed: " << imu_queue_.back().angular_velocity.z << "\033[0m" << std::endl;
+        << " score: " << icp_.getFitnessScore() << " angle speed: " << odom_queue_.back().twist.twist.angular.z << "\033[0m" << std::endl;
         }
         location_info_msg.if_match_success = false;
         location_info_publisher_.publish(location_info_msg);
@@ -453,13 +421,13 @@ bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::
 
     //如果匹配结果不满足条件，退出
     if(angleDist > ANGLE_UPPER_THRESHOLD_ || icp_.getFitnessScore() > SCORE_THRESHOLD_MAX_
-        || abs(imu_queue_.back().angular_velocity.z) > ANGLE_SPEED_THRESHOLD_)
+        || abs(odom_queue_.back().twist.twist.angular.z) > ANGLE_SPEED_THRESHOLD_)
     {
         if(if_debug_){
         // \033[1;33m，\033[0m 终端显示成黄色
         std::cout << "\033[1;33m" << "result out of threshold" << "\033[0m" << std::endl;
         std::cout << "\033[1;33m"  << "tranDist:" << tranDist << " angleDist: " << angleDist 
-        << " score: " << icp_.getFitnessScore() << " angle speed: " << imu_queue_.back().angular_velocity.z << "\033[0m" << std::endl;
+        << " score: " << icp_.getFitnessScore() << " angle speed: " << odom_queue_.back().twist.twist.angular.z << "\033[0m" << std::endl;
         }
         location_loss_num_ += 1;
         if (location_loss_num_ > Loss_Num_Threshold_ && Loss_Num_Threshold_ != -1)   //丢失超过阈值进入重定位
@@ -627,7 +595,7 @@ bool Scan2MapLocation::ReLocationWithICP(Eigen::Isometry3d &trans ,const sensor_
     location_info_msg.point_cloud_quantity = cloud_scan_->points.size();
     location_info_msg.tranDist = 0;
     location_info_msg.angleDist = 0;
-    location_info_msg.angle_apeed = abs(imu_queue_.back().angular_velocity.z);
+    location_info_msg.angle_apeed = abs(odom_queue_.back().twist.twist.angular.z);
     location_info_msg.score = best_score;
 
     if(if_debug_){
@@ -723,10 +691,9 @@ void Scan2MapLocation::PointCloudOutlierRemoval(PointCloudT::Ptr &cloud_msg)
      /* 执行滤波 返回 滤波后 的 点云 */
     sor_OutRemove.filter (*cloud_msg);
  
+ 
     /* 打印滤波前后的点数 */
-    if (if_debug_){
-    std::cout << "size of clound OutlierRemovaled : " << cloud_msg->points.size() << std::endl;
-    }
+    // std::cout << "size of clound OutlierRemovaled : " << cloud_msg->points.size() << std::endl;
 }
 
 /**
@@ -1206,80 +1173,38 @@ geometry_msgs::PoseWithCovarianceStamped Scan2MapLocation::Isometry3d_to_PoseWit
     return pose_msg;
 }
 
-bool Scan2MapLocation::ifCoordinateInExclusionRegion(const std::vector<double>& region, const Eigen::Isometry3d &coord)
+bool Scan2MapLocation::is_coordinate_in_range(const std::vector<double>& vec, const Eigen::Isometry3d &coord)
 {
-    if(region.size() %4 != 0){
-        ROS_ERROR_STREAM("size of ExclusionRegion is not a multiple of 4.");
+    if(vec.size() %4 != 0){
+        ROS_INFO_STREAM("\033[1;31m----> size of vector is not a multiple of 4.\033[0m");
         return false;
     }
 
-    const int num_ranges = region.size() / 4;
+    // std::vector<std::pair<double, double>> ranges;
+    const int num_ranges = vec.size() / 4;
     // std::cout << "num_ranges : " << num_ranges << std::endl;
     for (int i = 0; i < num_ranges; i++) {
-        double x1 = region[i * 4];
-        double y1 = region[i * 4 + 1];
-        double x2 = region[i * 4 + 2];
-        double y2 = region[i * 4 + 3];
+        double x1 = vec[i * 4];
+        double y1 = vec[i * 4 + 1];
+        double x2 = vec[i * 4 + 2];
+        double y2 = vec[i * 4 + 3];
+
 
         if (x1 <= coord.translation().x() && coord.translation().x() <= x2 && 
             y1 <= coord.translation().y() && coord.translation().y() <= y2)
             {return true;}
 
+        // ranges.emplace_back(std::make_pair(x1, y1), std::make_pair(x2, y2));
     }
+
+    // for (const auto& range : ranges) {
+    //     if (coord.first >= range.first.first && coord.second >= range.first.second &&
+    //         coord.first <= range.second.first && coord.second <= range.second.second) {
+    //         return true;
+    //     }
+    // }
+
     return false;
-}
-
-bool Scan2MapLocation::pubRegionByMarker(std::vector<double>& region)
-{
-
-    if(region.size() %4 != 0){
-        ROS_ERROR_STREAM("size of ExclusionRegion is not a multiple of 4.");
-        return false;
-    }
-
-    // 创建一个Marker消息
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = "map";
-    marker.header.stamp = ros::Time::now();
-    marker.ns = "shapes";
-    marker.type = visualization_msgs::Marker::CUBE;
-    marker.action = visualization_msgs::Marker::ADD;
-
-    // 设置Marker的尺寸
-    marker.scale.x = 1.0;  // 正方体的边长
-    marker.scale.y = 1.0;
-    marker.scale.z = 0.1;
-
-    // 设置Marker的颜色
-    marker.color.r = 0.0;  // 红色
-    marker.color.g = 1.0;
-    marker.color.b = 0.0;
-    marker.color.a = 0.3;  // 不透明
-
-    marker.pose.orientation.x = 0;
-    marker.pose.orientation.y = 0;
-    marker.pose.orientation.z = 0;
-    marker.pose.orientation.w = 1;
-
-    const int num_ranges = region.size() / 4;
-    // std::cout << "num_ranges : " << num_ranges << std::endl;
-    for (int i = 0; i < num_ranges; i++) {
-        double x1 = region[i * 4];
-        double y1 = region[i * 4 + 1];
-        double x2 = region[i * 4 + 2];
-        double y2 = region[i * 4 + 3];
-
-        marker.id = i;
-        marker.scale.x = x2 - x1;  // 正方体的边长
-        marker.scale.y = y2 - y1;
-        // 设置Marker的位置和姿态
-        marker.pose.position.x = (x2 + x1)/2;  // 中心点的X坐标
-        marker.pose.position.y = (y2 + y1)/2;
-        marker.pose.position.z = 0.05;
-
-        region_marker_pub_.publish(marker); // 发布Marker消息
-    }
-    return true;
 }
 
 int main(int argc, char **argv)

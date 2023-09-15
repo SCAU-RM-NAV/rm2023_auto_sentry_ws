@@ -1,0 +1,70 @@
+<launch>
+<!--
+by dyan1024
+//后为wiki官网的参数说明
+（）中为粗读算法参数说明及理解
+×××面临的问题
+常用地图有2种：
+    1.基于特征，仅指明在指定位置（地图中包含的对象的位置）的环境的形状。特征表示使得调节对象的位置变得简单，作为附加的检测结果。这样的地图在地图构建领域很受欢迎。
+    2.基于位置，这样的地图是有体积的，它们为环境中的许多位置都提供标签。不仅包括环境物体的信息，也包括了对象没有物体的信息（如空闲空间），比较经典的占用栅格地图就是基于位置的。
+根据官网信息，amcl采用的是结合自适应（增强蒙特卡洛Augmented_MCL）和库尔贝克-莱不勒散度采样KLD_Sampling_MCL（蒙特卡洛定位的一个变种）。
+    1.KLD_Sampling_MCL随时间改变粒子数，改良了度过初期后的蒙特卡洛大样本集合的资源浪费。两个kld_配置参数就是KLD的参数。对于每次粒子滤波迭代，KLD采样以概率1-δ确定样本数（1-δ就是kld_z配置参数），使得真实的后验与基于采样的近似之间的误差小于ε（ε就是kld_err配置参数）.kld_z=0.99,kld_err=0.05,直方图位大小为15cm*15cm*15°就能取得良好的结果。
+    2.Augmented_MCL解决的是从机器人绑架或全局定位失效中恢复的问题。两个recovery_alpha_配置参数就是用于失效恢复的。随机采样以max{0.0,1.0-w(fast)/w(slow)}概率增加。如果短期似然劣于长期似然则增加随机采样，这种方法，测量似然的一个突然衰减将引起随机采样的数目增加。w=w+α(Wavg-w)Wavg当前测量模型的权重，w为短期（w(fast)）或长期(w(slow))平滑估计，α为与w对应的recovery_alpha_参数。
+-->
+  <node pkg="amcl" type="amcl" name="amcl" output="screen">
+    <!-- Publish scans from best pose at a max of 10 Hz -->
+
+    
+    <param name="min_particles" value="500"/>   <!--//允许的粒子数量的最小值，默认100-->
+    <param name="max_particles" value="5000"/> <!--//允许的例子数量的最大值，默认5000-->
+    <param name="kld_err" value="0.05"/>   
+    <param name="kld_z" value="0.99"/>   
+    <param name="update_min_d" value="0.2"/> 
+    <param name="update_min_a" value="0.5"/>   
+    <param name="resample_interval" value="1"/>  
+    <param name="transform_tolerance" value="0.1"/> 
+    <param name="recovery_alpha_slow" value="0.0"/> 
+    <param name="recovery_alpha_fast" value="0.0"/>  
+    <param name="gui_publish_rate" value="10.0"/>  
+    <param name="save_pose_rate" value="0.5"/> 
+    <param name="use_map_topic" value="false"/>  
+    <param name="first_map_only" value="false"/>  
+
+    
+    <param name="laser_min_range" value="-1.0"/>  
+    <param name="laser_max_range" value="-1.0"/>  
+    <param name="laser_max_beams" value="30"/>   
+    <param name="laser_z_hit" value="0.5"/> 
+    <param name="laser_z_short" value="0.05"/> 
+    <param name="laser_z_max" value="0.05"/> 
+    <param name="laser_z_rand" value="0.5"/> 
+    <param name="laser_sigma_hit" value="0.2"/> 
+    <param name="laser_lambda_short" value="0.1"/> 
+    <param name="laser_likelihood_max_dist" value="2.0"/> 
+    <param name="laser_model_type" value="likelihood_field"/> 
+
+    
+    <!--
+    ×××里程计模型并没有涉及机器人漂移或打滑的情况，一旦出现这样的情况，后续定位基本废了，虽然Augmented_MCL有失效恢复，但是实际运行中耗时太长且结果不太理想（位置居然跳，这很不合理，可能参数配置不太好）
+    -->
+    <param name="odom_model_type" value="omni"/> 
+    <param name="odom_alpha1" value="0.2"/> 
+    <param name="odom_alpha2" value="0.2"/> 
+    <!-- translation std dev, m -->
+    <param name="odom_alpha3" value="0.8"/> 
+    <param name="odom_alpha4" value="0.2"/> 
+    <param name="odom_alpha5" value="0.1"/> 
+    <param name="odom_frame_id" value="odom"/>  
+    <param name="base_frame_id" value="base_link"/>  
+    <param name="global_frame_id" value="map"/>  
+    <param name="tf_broadcast" value="true"/>  
+
+   
+    <param name="initial_pose_x" value="0"/> 
+    <param name="initial_pose_y" value="0"/> 
+    <param name="initial_pose_a" value="0"/> 
+    <param name="initial_cov_xx" value="0.5*0.5"/> 
+    <param name="initial_cov_yy" value="0.5*0.5"/> 
+    <param name="initial_cov_aa" value="(π/12)*(π/12)"/> 
+  </node>
+</launch>

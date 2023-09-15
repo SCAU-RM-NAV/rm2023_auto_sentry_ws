@@ -1,0 +1,6 @@
+<launch>
+
+<node pkg="auto_nav" name="auto_fsm" type="auto_fsm.py" output = "screen"/>
+<node pkg="auto_nav" name="tower_tf" type="tower_tf.py" output = "screen"/>
+
+</launch>

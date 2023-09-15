@@ -1,0 +1,9 @@
+<launch>
+
+    <!--include file="$(find roborts_base)/launch/base.launch"/>-->
+    <!--<include file="$(find rplidar_ros)/launch/rplidar_a3.launch" />-->
+    <include file="$(find auto_nav)/launch/gmapping.launch"/>
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find auto_nav)/config/rviz/auto_gmapping.rviz"/>
+    <!--rosrun map_server map_saver -f </location/map>-->
+
+</launch>

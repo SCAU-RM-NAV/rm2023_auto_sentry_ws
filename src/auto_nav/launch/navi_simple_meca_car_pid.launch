@@ -2,7 +2,7 @@
 <launch>
 
   <!-- <node name="map_server" pkg="map_server" type="map_server" args="$(find auto_nav)/map/map_game.yaml" output="screen"> -->
-  <node name="map_server" pkg="map_server" type="map_server" args="$(find auto_nav)/map/simple_car_map.yaml" output="screen">
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find auto_nav)/map/rmuc_map_draw.yaml" output="screen">
    <param name="frame_id" value="map" />
   </node>
 

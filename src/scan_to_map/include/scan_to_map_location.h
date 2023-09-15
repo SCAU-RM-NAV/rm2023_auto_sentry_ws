@@ -13,10 +13,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/point_cloud_conversion.h>
-#include <sensor_msgs/Imu.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-#include <visualization_msgs/Marker.h>
 
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -58,7 +56,6 @@ private:
     ros::Subscriber map_subscriber_;        //声明一个Subscriber
     ros::Subscriber initialpose_subscriber_;        //声明一个Subscriber
     ros::Subscriber odom_subscriber_;       // 声明一个Subscriber
-    ros::Subscriber imu_subscriber_;       // 声明一个Subscriber
 
     ros::Publisher odom_publisher_;         // 声明一个Publisher
     ros::Publisher map_pointcloud_publisher_;         // 声明一个Publisher
@@ -72,7 +69,6 @@ private:
     ros::Publisher relocate_initialpose_publisher_;
     ros::Publisher rotate_robotpose_publisher_;
     ros::Publisher location_info_publisher_;
-    ros::Publisher region_marker_pub_;
 
     ros::ServiceServer relocalization_srv_; //重定位服务
 
@@ -98,8 +94,7 @@ private:
     // parameters
     bool map_initialized_ = false;
     bool scan_initialized_ = false;
-    bool odom_initialized_ = false;
-    bool imu_initialized_ = false;
+    bool odom_initialized_ = true;
     bool need_relocalization = false;
     bool relocalization_result = false;
 
@@ -154,11 +149,6 @@ private:
     std::deque<nav_msgs::Odometry> odom_queue_;
     int odom_queue_length_;
 
-    //用于imu获取坐标变换
-    std::mutex imu_lock_;
-    std::deque<sensor_msgs::Imu> imu_queue_;
-    int imu_queue_length_;
-
     // relocation
     double Relocation_Weight_Score_;
     double Relocation_Weight_Distance_;
@@ -177,7 +167,7 @@ private:
     double Point_Quantity_THRESHOLD_;   //点云数阈值
     double Maximum_Iterations_;           //ICP中的最大迭代次数
 
-    std::vector<double> location_exclusion_region_;
+    std::vector<double> location_restricted_zone_;
 
     double Variance_X;      //协方差
     double Variance_Y;
@@ -233,12 +223,10 @@ public:
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan_msg);
     void MapCallback(const nav_msgs::OccupancyGrid::ConstPtr &map_msg);
     void OdomCallback(const nav_msgs::Odometry::ConstPtr &odometryMsg);
-    void IMUCallback(const sensor_msgs::Imu::ConstPtr &imu_msg);
     void InitialposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg);
     bool RelocalizeCallback(roborts_msgs::Relocate::Request& req, roborts_msgs::Relocate::Response& res);
     geometry_msgs::PoseWithCovarianceStamped Isometry3d_to_PoseWithCovarianceStamped(const Eigen::Isometry3d& iso);
     void rotateScan(sensor_msgs::LaserScan::Ptr & scan, double angle);
     void rotatePointCloud(PointCloudT::Ptr &cloud_msg, const Eigen::Affine3f &rotation, const Eigen::Affine3f &robo_pose);
-    bool ifCoordinateInExclusionRegion(const std::vector<double>& region, const Eigen::Isometry3d &coord);
-    bool pubRegionByMarker(std::vector<double>& region);
+    bool is_coordinate_in_range(const std::vector<double>& vec, const Eigen::Isometry3d &coord);
 };

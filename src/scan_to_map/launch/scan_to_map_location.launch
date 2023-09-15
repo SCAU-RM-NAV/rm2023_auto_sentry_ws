@@ -8,9 +8,15 @@
     <!-- <arg name="bag_filename" default="/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/simulation_laser_map.bag"/> -->
 
     <!-- 使用bag的时间戳 -->
-    <param name="use_sim_time" value="false" />
+    <param name="use_sim_time" value="true" />
 
-    <!-- 启动 icp 节点 -->
+    <!-- base_link to front_laser_link -->
+    <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="link_broadcaster" 
+        args="0 0 0.254 0 0 3.1415926 base_link front_laser_link" /> -->
+
+    <!-- 启动 plicp_odometry 节点 -->
+    <!-- <node name="scan_to_map"
+        pkg="scan_to_map" type="scan_to_map_location_node" respawn="true" > -->
     <node name="scan_to_map"
         pkg="scan_to_map" type="scan_to_map_location_node" output="screen"  respawn="true" >
         <rosparam file="$(find scan_to_map)/config/icp_params.yaml" command="load"/>

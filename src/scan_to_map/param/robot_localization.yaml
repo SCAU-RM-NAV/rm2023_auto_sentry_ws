@@ -11,18 +11,6 @@ sensor_timeout: 1
 #例如，通过 IMU。 如果未指定，则默认为 false。 
 two_d_mode: true
 
-# 对抗赛
-# 定位禁区  判断为定位禁区得到两个点   格式：[x1, y1, x2, y2]表示一个区域
-# locationExclusionRegion: [-4.0, 1.8, 4.0, 5.0,  #己方吊射点
-#                           4.0, -3.5, 7.0, 5.0,     #己方环高
-#                           6.0, 3.5, 11.0, 6.0,     #对方公路区
-#                           9.0, -5.5, 13, 0.0]    #对方环高
-# 工训
-# locationExclusionRegion: [-4.0, 1.0, 3.5, 6.0,  #己方吊射点
-#                           3.5, -4.2, 7.0, 5.0,     #己方环高
-#                           7.0, 2.5, 13.0, 5.0,     #对方公路区
-#                           10.0, -5.5, 14, 0.0]    #对方环高
-
 # # 使用此参数为 ekf_localization_node 生成的变换提供偏移量。 这可以用于未来约会转换，这是与其他一些包交互所必需的。 默认为 0.0 如果未指定。 
 # transform_time_offset: 0.0
 
@@ -33,16 +21,16 @@ two_d_mode: true
 # print_diagnostics: true
 
 # # 调试设置。 不适合胆小的人。 将大量信息输出到指定的文件中debug_out_file。 我希望你喜欢矩阵！ 请注意，将此设置为 true 会产生强烈的危害对节点性能的影响。 如果未指定，则默认为 false。 
-# debug: true
+# debug: false
 
 # # 如果未指定，则默认为“robot_localization_debug.txt”。 请指定完整路径。 
-# debug_out_file: /home/autorobot/4ws_auto_infantry_ws/src/robot_localization/file.txt
+# debug_out_file: /path/to/debug/file.txt
 
 # # 是否广播 /tf 主题的转换。 如果未指定，则默认为 true。 
 # publish_tf: true
 
 # # 是否发布加速状态。 如果未指定，则默认为 false。 
-# publish_acceleration: true
+# publish_acceleration: false
 
 
 # REP-105 (http://www.ros.org/reps/rep-0105.html) 指定了四个主要坐标系：base_link、odom、map 和地球。 base_link 是贴在机器人上的坐标系。 odom 和 map 都是世界固定的框架。
@@ -120,15 +108,6 @@ odom0_differential: true
 # odom0_pose_rejection_threshold: 1
 # odom0_twist_rejection_threshold: 0.8
 
-# odom0: /lio_odometry
-# odom0_config: [true, true, false,
-#               false, false, false,
-#               false, false, false,
-#               false, false, false,
-#               false, false, false]
-
-# odom0_queue_size: 50
-# odom0_differential: true
 
 
 imu0: /IMU_data
@@ -139,10 +118,10 @@ imu0_config: [false, false, false,
               false, false, false,
               false, false, false,
               false, false, true,
-              false, false, false]
+              true, true, false]
 #imu0_queue_size: 50
 imu0_differential: true
-imu0_relative: false
+#imu0_relative: true
 
 
 # # [高级] EKF 和 UKF 模型遵循标准的预测/正确循环。在预测过程中，如果没有加速度参考，时间 t+1 的速度被简单地预测为与时间 t 的速度相同。中修正，这个预测值与测量值融合以产生新的速度估计。
@@ -160,10 +139,10 @@ stamped_control: false
 control_config: [true, true, false, false, false, true]
 
 # # 限制加速度项的大小。 应该与您的机器人的运动学相匹配。 仅当use_control设置为true时使用。
-acceleration_limits: [5, 5, 0.0, 0.0, 0.0, 9]
+acceleration_limits: [1.5, 1.5, 0.0, 0.0, 0.0, 9]
 
 # # 机器人的加速和减速限制并不总是相同的。 
-deceleration_limits: [10, 10, 0.0, 0.0, 0.0, 9]
+deceleration_limits: [1.5, 1.5, 0.0, 0.0, 0.0, 9]
 
 # # 如果您的机器人不能立即达到其加速度限制，则可以通过这些增益控制允许的变化 ,仅当use_control设置为true时使用。
 # acceleration_gains: [0.8, 0.0, 0.0, 0.0, 0.0, 0.9]
