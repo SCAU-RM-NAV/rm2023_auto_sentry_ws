@@ -17,88 +17,88 @@ RM2022自动步兵开源链接https://github.com/SCAU-RM-NAV/rm2022_auto_infantr
 
 ## 代码框架
 ```
- src
-    ├── 4ws_auto_infantry   仿真模型功能包
+└── src
+    ├── auto_nav                            导航功能包
     │   ├── CMakeLists.txt
-    │   ├── config 参数配置文件
-    │   ├── launch
-    │   │   ├── display.launch
-    │   │   ├── display_rviz.launch
-    │   │   └── gazebo.launch
-    │   ├── meshes  STL文件目录
-    │   ├── package.xml
-    │   ├── robots
-    │   │   └── 4ws_auto_infantry.xacro
-    │   ├── urdf
-    │   └── world 赛场仿真模型
-    ├── CMakeLists.txt -> 
-    │
-    ├── auto_nav    导航算法功能包
-    │   ├── CMakeLists.txt
-    │   ├── cfg
-    │   │   └── tracks_follow.cfg
-    │   ├── config 参数配置文件夹
+    │   ├── config
+    │   │   ├── point_pid_params            导航参数文件
+    │   │   │   ├── costmap_common_params.yaml
+    │   │   │   ├── global_costmap_params.yaml
+    │   │   │   ├── local_costmap_params.yaml
+    │   │   │   └── teb_local_planner_params.yaml
+    │   │   └── rviz
+    │   │       └── auto_navi_demo.rviz
     │   ├── example
     │   │   ├── pid.c
     │   │   └── pid.h
-    │   ├── include
+    │   ├── include                 pid轨迹跟踪代码头文件
     │   │   ├── cubic_spline
     │   │   │   ├── cpprobotics_types.h
     │   │   │   ├── cubic_spline.h
     │   │   │   └── cubic_spline_ros.h
     │   │   ├── pid.h
-    │   │   ├── pid_position_follow.h      pid轨迹跟踪头文件
+    │   │   ├── pid_position_follow.h
     │   │   └── utility.h
-    │   ├── launch
+    │   ├── launch                  定位导航launch文件
     │   │   ├── amcl_simple_meca_car.launch
-    │   │   ├── gmapping.launch
-    │   │   ├── gmapping_demo.launch
-    │   │   ├── navi_simple_meca_car.launch
-    │   │   ├── navi_simple_meca_car_pid.launch 导航定位算法launch文件
-    │   │   ├── pid_follow_planner.launch
-    │   │   └── simple_meca_car_gmapping.launch
-    │   ├── map 地图
+    │   │   ├── navi_simple_meca_car_pid.launch
+    │   │   └── pid_follow_planner.launch
+    │   ├── map
+    │   │   ├── rmuc_map_draw.pgm
+    │   │   └── rmuc_map_draw.yaml
     │   ├── package.xml
     │   └── src
     │       ├── pid.cpp
-    │       └── pid_position_follow.cpp
-    ├── rmus_map_2  仿真模型功能包
+    │       └── pid_position_follow.cpp   pid轨迹跟踪代码
+    ├── roborts_msgs                自定义数据类型功能包
     │   ├── CMakeLists.txt
-    │   ├── config
-    │   │   └── joint_names_RMUS_map_2.yaml
-    │   ├── export.log
-    │   ├── launch
-    │   │   ├── display.launch
-    │   │   └── gazebo.launch
-    │   ├── meshes
-    │   │   └── base_link.stl
-    │   ├── package.xml
-    │   └── urdf
-    │       ├── RMUS_map_2.csv
-    │       └── rmus_map_2.urdf
-    ├── roborts_msgs 消息类型功能包
-    │   ├── CMakeLists.txt
-    │   ├── msg     自定义消息类型
+    │   ├── msg
+    │   │   ├── GameStatus.msg
+    │   │   ├── LocationInfo.msg    定位信息自定义数据类型
+    │   │   └── RobotStatus.msg
     │   ├── package.xml
     │   └── srv
     │       ├── PidPlannerStatus.srv
-    │       └── Relocate.srv
-    ├── scan_to_map  定位算法功能包
+    │       └── Relocate.srv        重定位自定义服务数据类型
+    ├── scan_to_map             定位算法功能包
     │   ├── CMakeLists.txt
-    │   ├── include
+    │   ├── include             定位代码头文件
     │   │   └── scan_to_map_location.h
-    │   ├── launch
-    │   │   ├── robot_localization_icp.launch
-    │   │   └── scan_to_map_location.launch 
+    │   ├── launch              定位代码launch文件
+    │   │   ├── robot_localization_icp.launch 
+    │   │   └── scan_to_map_location.launch
     │   ├── package.xml
-    │   ├── param
-    │   │   └── robot_localization.yaml robot_localization功能包参数
-    │   ├── script
-    │   │   └── test.py
+    │   ├── param               定位参数文件
+    │   │   ├── icp_params.yaml         icp匹配参数
+    │   │   └── robot_localization.yaml     robot_localization功能包的EKF实现参数
     │   └── src
-    │       ├── SnapMapICP.cpp
-    │       └── scan_to_map_location.cpp
-    └── simple_meca_car 仿真小车功能包
+    │       └── scan_to_map_location.cpp        ICP匹配定位代码
+    └── simple_meca_car         仿真模型功能包
+        ├── CMakeLists.txt
+        ├── launch              仿真launch文件
+        │   └── race.launch
+        ├── meshes
+        │   ├── base_link.stl
+        │   ├── bot.dae
+        │   └── hokuyo.dae
+        ├── package.xml
+        ├── urdf                urdf模型文件
+        │   ├── rmus_map_2.urdf
+        │   └── waking_robot.xacro
+        └── world               地图模型文件
+            ├── RMUC_world
+            │   ├── meshes
+            │   │   └── place.dae
+            │   ├── model.config
+            │   ├── model.sdf
+            │   └── rmuc.world
+            ├── auto_world
+            │   ├── auto_world.world
+            │   ├── meshes
+            │   │   └── auto_world.dae
+            │   ├── model.config
+            │   └── model.sdf
+            └── empty_world.world
 
 ```
 ## 使用方法
