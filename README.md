@@ -102,6 +102,13 @@ RM2022自动步兵开源链接https://github.com/SCAU-RM-NAV/rm2022_auto_infantr
 
 ```
 ## 使用方法
+安装依赖包
+```
+sudo apt-get install ros-noetic-navigation
+sudo apt-get install ros-noetic-robot-localization
+```
+(后续编译过程中如果有依赖功能包未安装，按类似的方法安装)
+
 克隆存储库并catkin_make：
 ```
 cd ~/catkin_ws/src
@@ -110,6 +117,7 @@ cd ../
 catkin_make
 source ~/catkin_ws/devel/setup.bash
 ```
+
 启动仿真
 ```
 roslaunch simple_meca_car race.launch 
