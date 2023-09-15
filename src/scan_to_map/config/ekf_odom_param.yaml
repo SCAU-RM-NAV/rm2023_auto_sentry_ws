@@ -1,0 +1,164 @@
+# 滤波器输出位置估计的频率，单位为赫兹。 注意过滤器不会开始计算直到它从输入之一接收到至少一条消息。 然后它将在此处指定的频率，无论是否接收到更多测量值。 如果未指定，则默认为 30。
+frequency: 100
+
+# silent_tf_failure: false
+
+# 在此之后我们认为传感器超时的时间段（以秒为单位）。 在这种情况下，我们进行预测在 EKF 上循环而不更正它。 这个参数可以被认为是最小频率filter 将产生新的输出。 如果未指定，则默认为 1 / 频率。 
+sensor_timeout: 1
+
+two_d_mode: false    # 二维平面
+
+# transform_time_offset: 0.0    # 变换提供偏移量
+# transform_timeout: 0.0    # 等待转换变为可用的时间
+# print_diagnostics: true   # 向/diagnostics主题发布诊断消息
+# debug: false    # 大量信息输出到指定的文件中debug_out_file
+# debug_out_file: /path/to/debug/file.txt
+
+publish_tf: true    # 是否广播 /tf 
+
+# publish_acceleration: false   # 是否发布加速状态
+
+map_frame: odom              # Defaults to "map" if unspecified
+odom_frame: odom            # Defaults to "odom" if unspecified
+base_link_frame: base_link  # Defaults to "base_link" if unspecified
+world_frame: odom            # Defaults to the value of odom_frame if unspecified
+
+diagnostics_agg: false
+#x , y , z,
+#roll , pitch , yaw,
+#vx , vy , vz,
+#vroll , vpitch, vyaw,
+#ax , ay , az
+
+
+# 过滤器接受来自每种输入消息类型（nav_msgs/Odometry，
+#geometry_msgs/PoseWithCovarianceStamped, geometry_msgs/TwistWithCovarianceStamped,sensor_msgs/Imu)。 要添加输入，只需将序列中的下一个数字附加到其“基本”名称，
+# 例如 odom0，odom1、twist0、twist1、imu0、imu1、imu2等，取值应为主题名称。 这些参数显然没有默认值，并且必须指定。 
+# twist0: turtle1/sensors/twist
+# 每个传感器读数都会更新部分或全部过滤器的状态。 这些选项使您可以更好地控制哪些来自每个测量的值被馈送到过滤器。 例如，如果您有一个里程计消息作为输入，但只有想要使用它的 Z 位置值，
+# 然后将整个向量设置为 false，除了第三个条目的顺序值为 x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az。 请注意，不是某些消息类型不提供过滤器估计的一些状态变量。 
+# 例如，一条 TwistWithCovarianceStamped 消息没有姿势信息，因此在这种情况下前六个值将毫无意义。 每个向量默认为全假,如果未指定，则有效地使每个传感器都需要此参数。 
+# twist0_config: [false, false, false, false, false, false,
+#                 true, true, false, false, false, true,
+#                 false, false, false]
+
+# odom0: /lio_odometry
+# odom0_config: [true, true, false,
+#               false, false, false,
+#               false, false, false,
+#               false, false, false,
+#               false, false, false]
+
+# # # 用户可以使用这些参数来调整每个传感器的回调队列大小。如果频率参数值远低于传感器的频率，这是非常有用的，因为它允许滤波器合并更新周期之间到达的所有测量值。
+# odom0_queue_size: 50
+# # odom0_nodelay: false
+# odom0_differential: false
+# odom0_relative: true
+# # odom0_pose_rejection_threshold: 1
+# # odom0_twist_rejection_threshold: 0.8
+
+
+odom0: /odom
+odom0_config: [false, false, false,
+              false, false, false,
+              true, true, false,
+              false, false, false,
+              false, false, false]
+
+# # 用户可以使用这些参数来调整每个传感器的回调队列大小。如果频率参数值远低于传感器的频率，这是非常有用的，因为它允许滤波器合并更新周期之间到达的所有测量值。
+odom0_queue_size: 50
+# odom0_nodelay: false
+odom0_differential: false
+odom0_relative: false
+# odom0_pose_rejection_threshold: 1
+# odom0_twist_rejection_threshold: 0.8
+
+
+
+imu0: /IMU_data
+#NOTE: If you find that your robot has x drift,
+#the most likely candidate is the x’’ (acceleration) fr$
+#Just set it to false! (It’s the first entry on the las$
+imu0_config: [false, false, false,
+              false, false, true,
+              false, false, false,
+              false, false, true,
+              false, false, false]
+#imu0_queue_size: 50
+imu0_differential: true
+imu0_relative: false
+
+
+# # [高级] EKF 和 UKF 模型遵循标准的预测/正确循环。在预测过程中，如果没有加速度参考，时间 t+1 的速度被简单地预测为与时间 t 的速度相同。中修正，这个预测值与测量值融合以产生新的速度估计。
+# # 这可以是有问题，因为最终速度实际上是旧速度和新速度的加权平均值。什么时候这个速度被整合到一个新的姿势中，结果可能是缓慢的覆盖。这个效果特别在旋转过程中使用 LIDAR 数据很明显。为了解决这个问题，
+# # 用户可以尝试夸大 process_noise_covariance对于有问题的速度变量，或在测量中减少有问题的变量的方差本身。此外，用户还可以利用我们当时向机器人发出的控制命令。进行预测。如果使用控制，
+# # 它将被转换为加速度项，它将在预测。请注意，如果有问题的变量的加速度测量值可从以下任一输入，控制项将被忽略。我们是否在预测过程中使用控制输入。默认为假。 
+use_control: false
+
+# # 输入（假设为 cmd_vel）是否是 geometry_msgs/Twist 或 geometry_msgs/TwistStamped 消息。 默认为 错误的。 
+stamped_control: false
+
+# # 最后发出的控制命令将用于此时段的预测。 默认为 0.2。 仅当use_control设置为true时使用。
+# control_timeout: 0.2
+# # 控制哪些速度。 顺序是 vx、vy、vz、vroll、vpitch、vyaw。 仅当use_control设置为true时使用。
+control_config: [true, true, false, false, false, true]
+
+# # 限制加速度项的大小。 应该与您的机器人的运动学相匹配。 仅当use_control设置为true时使用。
+acceleration_limits: [1.5, 1.5, 0.0, 0.0, 0.0, 9]
+
+# # 机器人的加速和减速限制并不总是相同的。 
+deceleration_limits: [1.5, 1.5, 0.0, 0.0, 0.0, 9]
+
+# # 如果您的机器人不能立即达到其加速度限制，则可以通过这些增益控制允许的变化 ,仅当use_control设置为true时使用。
+# acceleration_gains: [0.8, 0.0, 0.0, 0.0, 0.0, 0.9]
+
+# # 如果您的机器人不能立即达到其减速极限，则可以通过这些增益控制允许的变化 ,仅当use_control设置为true时使用。
+# deceleration_gains: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+
+#如果您的任何传感器产生的数据的时间戳比最近的过滤器更新要旧(更简单地说，如果您有一个滞后传感器数据源)，
+# 将此参数设置为true将使过滤器在接收到滞后数据时恢复到滞后测量之前的最后状态，然后处理所有测量直到当前时间。
+# 这对于来自需要大量CPU使用来生成姿态估计的节点的测量尤其有用(例如，激光扫描匹配器)，因为它们经常落后于当前时间。
+smooth_lagged_data: true
+
+# 如果smooth_lagged_data设置为true，该参数指定过滤器将保留其状态和测量历史的秒数。这个值应该至少与滞后测量和当前时间之间的时间增量一样大。
+history_length: 2
+
+# # [ADVANCED] 过程噪声协方差矩阵可能难以调整，并且可能因应用程序而异，因此它是作为配置参数公开。 该矩阵表示我们在每次之后添加到总误差中的噪声预测步骤。 全向运动模型与您的系统匹配得越好，
+# # 这些值就越小。但是，如果用户发现给定的变量收敛速度很慢，一种方法是增加相关变量的 process_noise_covariance 对角线值，这将导致过滤器的预测错误更大，这将导致过滤器在校正期间更信任传入的测量值。 
+# # 这些值是顺序为 x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az。 默认为下面的矩阵，如果未指定。 
+process_noise_covariance: [0.05, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0.05, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0.06, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0.03, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0.03, 0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0.1, 0,     0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0.025, 0,     0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0.025, 0,    0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0.02, 0,    0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0,    0.01, 0,    0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0.01, 0,    0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0.002, 0,    0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.01, 0,    0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.01, 0,
+                           0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.015]
+
+# # 如果为真，将根据机器人的速度动态缩放process_noise_协方差。这很有用，例如，当你想让机器人的估计误差协方差在机器人静止时停止增长。默认为false。
+# dynamic_process_noise_covariance: false
+
+# # [ADVANCED] 这表示状态估计误差协方差矩阵的初始值。 设置对角线value (variance) 到一个大的值将导致变量的初始测量快速收敛问题。 用户应注意不要对不会直接测量的变量使用大值。 
+# 价值顺序为 x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az。 默认为下面的矩阵如果未指定。 
+initial_estimate_covariance: [0.1, 0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0.1, 0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    1e-9, 0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    1e-9, 0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    1e-9, 0,    0,    0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0.1, 0,    0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0.1, 0,    0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0.1, 0,    0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    1e-9, 0,     0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    0,    1e-9,  0,     0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     1e-9,  0,     0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0.1,  0,    0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     1e-9, 0,    0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    1e-9, 0,
+                              0,    0,    0,    0,    0,    0,    0,    0,    0,    0,     0,     0,     0,    0,    1e-9]

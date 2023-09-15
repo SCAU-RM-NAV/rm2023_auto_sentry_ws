@@ -7,12 +7,15 @@ Scan2MapLocation::Scan2MapLocation() : private_node_("~"), tf_listener_(tfBuffer
     ROS_INFO_STREAM("\033[1;32m----> ICP location started.\033[0m");
 
     //初始化订阅者
-    laser_scan_subscriber_ = node_handle_.subscribe("scan", 1, &Scan2MapLocation::ScanCallback, 
+    laser_scan_subscriber_ = node_handle_.subscribe("/scan", 1, &Scan2MapLocation::ScanCallback, 
                                                       this,  ros::TransportHints().tcpNoDelay());
 
     map_subscriber_ = node_handle_.subscribe("map", 1, &Scan2MapLocation::MapCallback, this);
 
-    odom_subscriber_ = node_handle_.subscribe("odom", 20, &Scan2MapLocation::OdomCallback,
+    odom_subscriber_ = node_handle_.subscribe("/odom", 20, &Scan2MapLocation::OdomCallback,
+                                                 this,  ros::TransportHints().tcpNoDelay());
+
+    imu_subscriber_ = node_handle_.subscribe("/IMU_data", 20, &Scan2MapLocation::IMUCallback,
                                                  this,  ros::TransportHints().tcpNoDelay());
 
     map_pointcloud_publisher_ = node_handle_.advertise<sensor_msgs::PointCloud2>("map_pointcloud", 10);
@@ -23,15 +26,23 @@ Scan2MapLocation::Scan2MapLocation() : private_node_("~"), tf_listener_(tfBuffer
 
     map_scan_publisher_ = node_handle_.advertise<sensor_msgs::LaserScan>("map_scan", 10);
 
+    region_marker_pub_ = node_handle_.advertise<visualization_msgs::Marker>("/location_exclusion_region_marker", 1);
+
     // 注意，这里的发布器，发布的数据类型为 PointCloudT
     // ros中自动做了 PointCloudT 到 sensor_msgs/PointCloud2 的数据类型的转换
     icp_pointcloud_publisher_ = node_handle_.advertise<PointCloudT>("icp_pointcloud", 1, this);
 
-    location_publisher_ = node_handle_.advertise<geometry_msgs::PoseWithCovarianceStamped>("location_match", 1, this);
-    // initialpose_subscriber_ = node_handle_.subscribe(
-    //     "map", 1, &Scan2MapLocation::InitialposeCallback, this);
+    rotate_pointcloud_publisher_ = node_handle_.advertise<PointCloudT>("rotate_pointcloud", 1, this);
 
-    // odom_publisher_ = node_handle_.advertise<nav_msgs::Odometry>("odom_plicp", 50);
+    location_publisher_ = node_handle_.advertise<geometry_msgs::PoseWithCovarianceStamped>("location_match", 1, this);
+
+    relocate_tranform_visuial_publisher_ = node_handle_.advertise<geometry_msgs::PoseWithCovarianceStamped>("relocate_visuial_pose", 1, this);
+
+    rotate_robotpose_publisher_ = node_handle_.advertise<geometry_msgs::PoseWithCovarianceStamped>("rotate_robot_pose", 1, this);
+
+    relocate_initialpose_publisher_ = node_handle_.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 1, this);
+
+    location_info_publisher_ = node_handle_.advertise<roborts_msgs::LocationInfo>("location_info", 1, this);
 
     relocalization_srv_ = node_handle_.advertiseService("relocalization", &Scan2MapLocation::RelocalizeCallback, this);
 
@@ -53,30 +64,24 @@ Scan2MapLocation::~Scan2MapLocation()
 void Scan2MapLocation::InitParams()
 {
     private_node_.param<bool>("if_debug", if_debug_, true);
+    private_node_.param<bool>("save_pcd", save_pcd_, true);
 
     private_node_.param<std::string>("odom_frame", odom_frame_, "odom");
     private_node_.param<std::string>("base_frame", base_frame_, "base_link");
     private_node_.param<std::string>("map_frame", map_frame_, "map");
     private_node_.param<std::string>("lidar_frame", lidar_frame_, "lidar_link");
-    // **** keyframe params: when to generate the keyframe scan
-    // if either is set to 0, reduces to frame-to-frame matching
-    private_node_.param<double>("kf_dist_linear", kf_dist_linear_, 0.1);
-    private_node_.param<double>("kf_dist_angular", kf_dist_angular_, 5.0 * (M_PI / 180.0));
-    kf_dist_linear_sq_ = kf_dist_linear_ * kf_dist_linear_;
-    private_node_.param<int>("kf_scan_count", kf_scan_count_, 10);
 
     private_node_.param<int>("odom_queue_length", odom_queue_length_, 300);
 
     //ICP匹配相关参数
-    private_node_.param<double>("ANGLE_SPEED_THRESHOLD", ANGLE_SPEED_THRESHOLD_, 1);   //角速度阈值，大于此值不发布结果
+    private_node_.param<double>("ANGLE_SPEED_THRESHOLD", ANGLE_SPEED_THRESHOLD_, 7);   //角速度阈值，大于此值不发布结果
     private_node_.param<double>("AGE_THRESHOLD", AGE_THRESHOLD_, 1);   //scan与匹配的最大时间间隔
     private_node_.param<double>("ANGLE_UPPER_THRESHOLD", ANGLE_UPPER_THRESHOLD_, 10);    //最大变换角度
     private_node_.param<double>("ANGLE_THRESHOLD", ANGLE_THRESHOLD_, 0.01);    //最小变换角度
     private_node_.param<double>("DIST_THRESHOLD", DIST_THRESHOLD_, 0.01);    //最小变换距离
-    private_node_.param<double>("SCORE_THRESHOLD_MIN", SCORE_THRESHOLD_MIN_, 0.005);    //代价阈值，代价低于此值则发送定位,自适应使用
     private_node_.param<double>("SCORE_THRESHOLD_MAX", SCORE_THRESHOLD_MAX_, 0.1);    //达到最大迭代次数或者到达差分阈值后后，代价仍高于此值，认为无法收敛,自适应使用
-    private_node_.param<double>("SCORE_THRESHOLD_DIFF", SCORE_THRESHOLD_DIFF_, 1e-6);    //代价差分阈值，两次代价之差低于此值则发送定位,自适应使用
-    private_node_.param<double>("ICP_NUM_ITER", ICP_NUM_ITER_, 100);   //ICP中的最大迭代次数
+    private_node_.param<double>("Point_Quantity_THRESHOLD", Point_Quantity_THRESHOLD_, 200);   //点云数阈值,低于此值不匹配
+    private_node_.param<double>("Maximum_Iterations", Maximum_Iterations_, 100);   //ICP中的最大迭代次数
 
     //发布位姿的方差
     private_node_.param<double>("Variance_X", Variance_X, 0.01);   //x方向上方差
@@ -88,24 +93,24 @@ void Scan2MapLocation::InitParams()
 
     private_node_.param<bool>("Use_TfTree_Always", Use_TfTree_Always, true);   //是否总是使用tf树读取变换
 
-    //离群点滤波相关参数
-    private_node_.param<double>("OutlierRemoval_MeanK", OutlierRemoval_MeanK, 30);   //设置在进行统计时考虑查询点邻近点数
-    //设置判断是否为离群点 的 阈值  设置为1的 话 表示为：如果一个点的距离超过平均距离一个标准差以上则为离群点
-    private_node_.param<double>("OutlierRemoval_StddevMulThresh", OutlierRemoval_StddevMulThresh, 1); 
-
     //体素滤波的边长
     private_node_.param<double>("VoxelGridRemoval_LeafSize", VoxelGridRemoval_LeafSize, 0.05); 
 
     //迭代障碍物去除
     //如果雷达点云中点在地图点云最近点大于此值，就认为该点为障碍点，有最大和最小值，会随着icp迭代的SCORE值按比例进行更新
     private_node_.param<double>("ObstacleRemoval_Distance_Max", ObstacleRemoval_Distance_Max, 2);     //最大距离
-    private_node_.param<double>("ObstacleRemoval_Distance_Min", ObstacleRemoval_Distance_Min, 0.5);     //最小距离
+
+    // 定位禁区、
+    private_node_.param<std::vector<double>>("location_exclusion_region", location_exclusion_region_, {});
 
     // 重定位
     private_node_.param<double>("Relocation_Weight_Score", Relocation_Weight_Score_, 0.5);     //重定位分数系数
     private_node_.param<double>("Relocation_Weight_Distance", Relocation_Weight_Distance_, 0.5);     //重定位距离系数
     private_node_.param<double>("Relocation_Weight_Yaw", Relocation_Weight_Yaw_, 0.5);     //重定位yaw角系数
-    private_node_.param<double>("Relocation_ObstacleRemoval_Distance", Relocation_ObstacleRemoval_Distance_, 1.8);     //重定位离群值滤波剔除距离
+    private_node_.param<double>("Relocation_Maximum_Iterations", Relocation_Maximum_Iterations_, 80);     //重定位最大迭代次数
+    private_node_.param<double>("Relocation_Score_Threshold_Max",Relocation_Score_Threshold_Max_,0.15);
+
+    private_node_.param<int>("Loss_Num_Threshold", Loss_Num_Threshold_, -1);   //丢失阈值，丢失次数大于此值进入重定位
 }
 
 /*
@@ -120,6 +125,21 @@ void Scan2MapLocation::OdomCallback(const nav_msgs::Odometry::ConstPtr &odometry
     if (odom_queue_.size() > odom_queue_length_)    //弹出超过长度的数据
     {
         odom_queue_.pop_front();
+    }
+}
+
+/*
+ * IMU回调函数
+*/
+void Scan2MapLocation::IMUCallback(const sensor_msgs::Imu::ConstPtr &imu_msg)
+{
+    std::lock_guard<std::mutex> lock(imu_lock_);
+    imu_initialized_ = true;
+    imu_queue_.push_back(*imu_msg);
+    // std::cout << "time of imu_msg :" << imu_msg->header.stamp.toSec() << std::endl;
+    if (imu_queue_.size() > imu_queue_length_)    //弹出超过长度的数据
+    {
+        imu_queue_.pop_front();
     }
 }
 
@@ -147,8 +167,20 @@ void Scan2MapLocation::MapCallback(const nav_msgs::OccupancyGrid::ConstPtr& map_
 */
 bool Scan2MapLocation::RelocalizeCallback(roborts_msgs::Relocate::Request& req, roborts_msgs::Relocate::Response& res)
 {
+    ros::Rate rate(10);
     // Set the relocalization flag to true
     need_relocalization = true;
+
+    // 等待目标话题完成    
+    while (need_relocalization && ros::ok()) {  
+        // 处理 ROS 其他事件
+        ros::spinOnce();
+
+        // 线程睡眠达到指定频率
+        rate.sleep();
+    } 
+
+    res.success = relocalization_result;
 
     return true;
 }
@@ -161,7 +193,7 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
     scan_start_time_ = std::chrono::steady_clock::now();    //保存时间，用于最后计时
 
     //判断地图和里程计数据是否初始化，如果没有则退出
-    if (!map_initialized_ || !odom_initialized_)  
+    if (!map_initialized_ || !imu_initialized_)  
     {
         return;
     }
@@ -177,13 +209,13 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
         scan_time_ = scan_msg->header.stamp.toSec();   //初始化匹配时间
         // match_time_ = odom_queue_.back().header.stamp.toSec();
 
-        //读取base_to_lidar静态变换
-        base_to_lidar_ = Eigen::Isometry3d::Identity();
-        if (!GetTransform(base_to_lidar_, base_frame_, lidar_frame_, scan_msg->header.stamp))
-        {
-            ROS_WARN("Did not get base pose at now");
-            return;
-        }
+        // //读取base_to_lidar静态变换
+        // base_to_lidar_ = Eigen::Isometry3d::Identity();
+        // if (!GetTransform(base_to_lidar_, base_frame_, lidar_frame_, scan_msg->header.stamp))
+        // {
+        //     ROS_WARN("Did not get base pose at now");
+        //     return;
+        // }
         // std::cout << "success get base_to_lidar_" <<std::endl;
 
         //读取map_to_base变换
@@ -196,7 +228,8 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
         // std::cout << "success get map_to_base_" <<std::endl;
         scan_initialized_ = true;
 
-        map_to_lidar_ =  map_to_base_ * base_to_lidar_;//获得map到lidar变换，用于雷达数据转地图数据
+        // map_to_lidar_ =  map_to_base_ * base_to_lidar_;//获得map到lidar变换，用于雷达数据转地图数据
+        map_to_lidar_ =  map_to_base_;//获得map到lidar变换，用于雷达数据转地图数据
         // std::cout << "map_to_lidar_ : " << map_to_lidar_.matrix() << std::endl;
     }
     else    //初始化后，通过上一帧数据和odom数据计算得到map_to_lidar和map_to_base的坐标变换
@@ -225,7 +258,8 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
 
         map_to_base_ =  baselast_to_basenow *last_match_result_; 
         // map_to_base_ = last_match_result_; 
-        map_to_lidar_ =  map_to_base_ * base_to_lidar_;  //获得map到lidar变换，用于雷达数据转地图数据
+        // map_to_lidar_ =  map_to_base_ * base_to_lidar_;//获得map到lidar变换，用于雷达数据转地图数据
+        map_to_lidar_ =  map_to_base_;//获得map到lidar变换，用于雷达数据转地图数据
     }
 
     end_time_ = std::chrono::steady_clock::now();
@@ -238,36 +272,48 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
     {
         scan_initialized_ = false;} //每次都使用tf读取结果
 
-    // step1 进行数据类型转换
-    start_time_ = std::chrono::steady_clock::now();
-    ScanToPointCloudOnMap(scan_msg, cloud_scan_);
-    end_time_ = std::chrono::steady_clock::now();
-    time_used_ = std::chrono::duration_cast<std::chrono::duration<double>>(end_time_ - start_time_);
-    if (if_debug_){
-    std::cout << "scan格式转换处理用时: " << time_used_.count() << " 秒。" << std::endl;
+    // 判断定位忽略区域是否正确并发布
+    if(!pubRegionByMarker(location_exclusion_region_))
+    {
+        ROS_ERROR_STREAM("The parameter exclusion_region_ does not meet requirements");
     }
-
-    //将雷达和地图点云保存为pcd文件
-    if (save_pcd){
-        pcl::io::savePCDFileASCII("/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/cloud_scan_pcd.pcd",*cloud_scan_);
-        pcl::io::savePCDFileASCII("/home/gh_luck/auto_infantry_ws/src/scan_to_map/bagfiles/cloud_map_pcd.pcd",*cloud_map_); 
-        std::cout << "save pcb success" << std::endl;
-        save_pcd = false;
-    }
+    // // 判断是否在定位忽略区域，是则退出
+    // if(ifCoordinateInExclusionRegion(location_exclusion_region_,map_to_base_))
+    // {
+    //     ROS_INFO_STREAM("\033[1;33m-into restricted area, stop icp match.\033[0m");
+    //     return;
+    // }
 
     // 重定位
     if(need_relocalization){
-        // 进行离群点滤波，剔除离群点
-        PointCloudVoxelGridRemoval(cloud_scan_, VoxelGridRemoval_LeafSize);
-        PointCloudObstacleRemoval(cloud_map_, cloud_scan_, Relocation_ObstacleRemoval_Distance_);
         // 进行重定位
-        if (ReLocationWithICP(match_result_, cloud_scan_, cloud_map_, map_to_base_)) {
+        if (ReLocationWithICP(match_result_, scan_msg, cloud_map_, map_to_base_)) {
             need_relocalization = false;
-            // std::cout << "Robot relocated to (" << robot_pose.x << ", " << robot_pose.y << ", " << robot_pose.theta << ")" << std::endl;
+            relocalization_result = true;
+        }
+        else{
+            need_relocalization = false;
+            relocalization_result = false;
         }
         return; 
     }
+    // 判断是否在定位忽略区域，是则退出
+    else if (ifCoordinateInExclusionRegion(location_exclusion_region_,map_to_base_))
+    {
+        ROS_INFO_STREAM("\033[1;33m-into restricted area, stop icp match.\033[0m");
+        return;
+    }
     else{   //正常定位
+
+        // step1 进行数据类型转换
+        start_time_ = std::chrono::steady_clock::now();
+        ScanToPointCloudOnMap(scan_msg, cloud_scan_);
+        end_time_ = std::chrono::steady_clock::now();
+        time_used_ = std::chrono::duration_cast<std::chrono::duration<double>>(end_time_ - start_time_);
+        if (if_debug_){
+        std::cout << "scan格式转换处理用时: " << time_used_.count() << " 秒。" << std::endl;
+        }
+
         // 进行离群点滤波，剔除离群点
         // PointCloudOutlierRemoval(cloud_scan_);
         PointCloudVoxelGridRemoval(cloud_scan_, VoxelGridRemoval_LeafSize);
@@ -282,7 +328,6 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
             scan_initialized_ = false;  //数据错误，需要重新初始化
             return; 
         }
-
     }
 
     match_result_ = match_result_ * map_to_base_ ;     //将结果转换到map坐标系
@@ -295,7 +340,7 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
         return;
     }
 
-    match_result_ = basebegin_to_basenow * match_result_;     //将结果转换到map坐标系
+    // match_result_ = basebegin_to_basenow * match_result_;     //将结果转换到map坐标系
 
     //将结果转为PoseStamped类型并发布
     //旋转矩阵转四元数
@@ -340,14 +385,11 @@ void Scan2MapLocation::ScanCallback(const sensor_msgs::LaserScan::ConstPtr &scan
  */
 bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::Ptr &cloud_scan_msg, PointCloudT::Ptr &cloud_map_msg)
 {
-    // icp_.setTransformationEpsilon (0.01);    //为中止条件设置最小转换差异
-    // icp_.setEuclideanFitnessEpsilon(0.00001);
-    // icp_.convergence_criteria_->setAbsoluteMSE(1e-6);
-    // icp_.convergence_criteria_->setMaximumIterationsSimilarTransforms(3);
-
+    pcl::IterativeClosestPoint<PointT, PointT> icp_;
     icp_.setTransformationEpsilon (1e-6);    //为中止条件设置最小转换差异
+    icp_.setEuclideanFitnessEpsilon(1e-6);
     icp_.setMaxCorrespondenceDistance(5);
-    icp_.setMaximumIterations (ICP_NUM_ITER_);    //设置匹配迭代最大次数
+    icp_.setMaximumIterations (Maximum_Iterations_);    //设置匹配迭代最大次数
 
     // ICP 输入数据,输出数据的设置,还可以进行参数配置,这里使用默认参宿
     icp_.setInputSource(cloud_scan_msg);
@@ -367,52 +409,76 @@ bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::
     // 收敛了之后, 获取坐标变换
     Eigen::Affine3f transfrom;
     transfrom = icp_.getFinalTransformation();
-    // std::cout << "Affine3f transfrom : " << std::endl;
-    // std::cout << transfrom.matrix() << std::endl;
 
 
     // 将Eigen::Affine3f转换成x, y, theta, 并打印出来
     float x, y, z, roll, pitch, yaw;
     pcl::getTranslationAndEulerAngles(transfrom, x, y, z, roll, pitch, yaw);
-    // std::cout << "ICP transfrom: (" << x << ", " << y << ", " << yaw << ")" << std::endl;
 
     double tranDist = sqrt(x*x + y*y);
     double angleDist = abs(yaw);
 
-     if (if_debug_){
+    if (if_debug_){
     std::cout<< "tranDist:" << tranDist << " angleDist: " << angleDist 
-    << " score: " << icp_.getFitnessScore() << " angle speed: " << odom_queue_.back().twist.twist.angular.z << std::endl;
+    << " score: " << icp_.getFitnessScore() << " angle speed: " << imu_queue_.back().angular_velocity.z << std::endl;
     }
 
+    roborts_msgs::LocationInfo location_info_msg;
+    location_info_msg.if_relocation = false;
+    location_info_msg.point_cloud_quantity = cloud_scan_msg->points.size();
+    location_info_msg.tranDist = tranDist;
+    location_info_msg.angleDist = angleDist;
+    location_info_msg.angle_apeed = abs(imu_queue_.back().angular_velocity.z);
+    location_info_msg.score = icp_.getFitnessScore();
+
+    if (if_debug_){
+    std::cout << "cloud_scan_msg->points.size() : " << cloud_scan_msg->points.size() << std::endl;
+    }
+    
+    std::pair<double,double> coord = {x,y};
     // 如果变换小于一定值，不发布结果，退出
-    if(tranDist < DIST_THRESHOLD_ && angleDist < ANGLE_THRESHOLD_)
+    if(tranDist < DIST_THRESHOLD_ && angleDist < ANGLE_THRESHOLD_ ||
+         cloud_scan_msg->points.size() < Point_Quantity_THRESHOLD_ )
     {
         if(if_debug_){
         // \033[1;33m，\033[0m 终端显示成黄色
-        std::cout << "\033[1;33m" << "Distance out of threshold" << "\033[0m" << std::endl;
+        std::cout << "\033[1;33m" << "Distance or point_Quantity out of threshold" << "\033[0m" << std::endl;
         std::cout << "\033[1;33m"  << "tranDist:" << tranDist << " angleDist: " << angleDist 
-        << " score: " << icp_.getFitnessScore() << " angle speed: " << odom_queue_.back().twist.twist.angular.z << "\033[0m" << std::endl;
+        << " score: " << icp_.getFitnessScore() << " angle speed: " << imu_queue_.back().angular_velocity.z << "\033[0m" << std::endl;
         }
+        location_info_msg.if_match_success = false;
+        location_info_publisher_.publish(location_info_msg);
         return false;
     }
 
     //如果匹配结果不满足条件，退出
     if(angleDist > ANGLE_UPPER_THRESHOLD_ || icp_.getFitnessScore() > SCORE_THRESHOLD_MAX_
-        || abs(odom_queue_.back().twist.twist.angular.z) > ANGLE_SPEED_THRESHOLD_)
+        || abs(imu_queue_.back().angular_velocity.z) > ANGLE_SPEED_THRESHOLD_)
     {
+        if(if_debug_){
         // \033[1;33m，\033[0m 终端显示成黄色
         std::cout << "\033[1;33m" << "result out of threshold" << "\033[0m" << std::endl;
         std::cout << "\033[1;33m"  << "tranDist:" << tranDist << " angleDist: " << angleDist 
-        << " score: " << icp_.getFitnessScore() << " angle speed: " << odom_queue_.back().twist.twist.angular.z << "\033[0m" << std::endl;
+        << " score: " << icp_.getFitnessScore() << " angle speed: " << imu_queue_.back().angular_velocity.z << "\033[0m" << std::endl;
+        }
+        location_loss_num_ += 1;
+        if (location_loss_num_ > Loss_Num_Threshold_ && Loss_Num_Threshold_ != -1)   //丢失超过阈值进入重定位
+        {
+            need_relocalization = true;
+        }
+        if(if_debug_){
+            std::cout << "location_loss_num_: " << location_loss_num_ << std::endl;
+        }
+        location_info_msg.if_match_success = false;
+        location_info_publisher_.publish(location_info_msg);
         return false;
     }
-
-    // Eigen::Isometry3d transfrom_iso = Eigen::Isometry3d::Identity();
-    // trans.rotate(Eigen::AngleAxisd(yaw, Eigen::Vector3d(0, 0, 1)));
-    // trans.pretranslate(Eigen::Vector3d(x, y, z));
+    location_loss_num_ = 0;
 
     trans.matrix() = transfrom.matrix().cast<double>();      //Matrix4f类型转换为Isometry3d类型
 
+    location_info_msg.if_match_success = true;
+    location_info_publisher_.publish(location_info_msg);    //定位信息发布
     icp_pointcloud_publisher_.publish(pointcloud_result);   //发布匹配结果
     return true;
 }
@@ -420,32 +486,64 @@ bool Scan2MapLocation::ScanMatchWithICP(Eigen::Isometry3d &trans , PointCloudT::
 /**
  * 通过设置不同初始变换角度使用ICP，并对结果进行评分，实现重定位
 */
-bool Scan2MapLocation::ReLocationWithICP(Eigen::Isometry3d &trans , PointCloudT::Ptr &cloud_scan_msg, PointCloudT::Ptr &cloud_map_msg, Eigen::Isometry3d &robot_pose)
+bool Scan2MapLocation::ReLocationWithICP(Eigen::Isometry3d &trans ,const sensor_msgs::LaserScan::ConstPtr &scan_msg, PointCloudT::Ptr &cloud_map_msg, const Eigen::Isometry3d &robot_pose)
 {
+    //将雷达和地图点云保存为pcd文件
+    if (save_pcd_){
+        // 获取当前时间并格式化成字符串
+        std::time_t t = std::time(nullptr);
+        char buffer[100];
+        std::strftime(buffer, sizeof(buffer), "%Y%m%d_%H%M%S", std::localtime(&t));
+        std::string scan_cloud_filename = std::string("/home/autorobot/4ws_auto_infantry_ws/src/scan_to_map/bagfiles/scan_cloud_") + buffer + ".pcd";
+        std::string map_cloud_filename = std::string("/home/autorobot/4ws_auto_infantry_ws/src/scan_to_map/bagfiles/map_cloud_") + buffer + ".pcd";
+
+        // 保存点云数据
+        ScanToPointCloudOnMap(scan_msg, cloud_scan_);
+        pcl::io::savePCDFileASCII(scan_cloud_filename,*cloud_scan_);
+        pcl::io::savePCDFileASCII(map_cloud_filename,*cloud_map_msg);
+        std::cout << "save pcd success" << std::endl;
+    }
+
     // 设置不同的旋转角度来生成不同的初始变换矩阵
     std::vector<Eigen::Matrix4f> initial_transforms;
+    std::vector<float> angles;
     for (float angle = 0.0; angle < 360.0; angle += 10.0) {
         Eigen::Affine3f transform = Eigen::Affine3f::Identity();
         transform.rotate(Eigen::AngleAxisf(angle * M_PI / 180.0, Eigen::Vector3f::UnitZ()));
+        
         initial_transforms.push_back(transform.matrix());
+        angles.push_back(angle * M_PI / 180.0);
     }
-
-    // 对每个初始变换矩阵进行ICP匹配，并计算匹配分数
-    icp_.setInputSource(cloud_scan_msg);
-    icp_.setInputTarget(cloud_map_msg);
-    icp_.setMaximumIterations(50);
-    icp_.setTransformationEpsilon(1e-8);
-    icp_.setEuclideanFitnessEpsilon(0.01);
+    
     std::vector<float> fitness_scores;
-
     std::vector<Eigen::Affine3f> Transformation_sources;
+    std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> pointcloud_sources;
+
+    ScanToPointCloudOnMap(scan_msg, cloud_scan_);
 
     for (int i = 0; i < initial_transforms.size(); i++) {
+
+        // 将 Matrix4f 类型数据转换为 Affine3f 类型
+        Eigen::Affine3f initial_affine(initial_transforms[i]);
+        PointCloudT::Ptr rotate_scan_cloud(new PointCloudT(*cloud_scan_));
+        rotatePointCloud(rotate_scan_cloud, initial_affine, robot_pose.cast<float>());
+
+        if(if_debug_){rotate_pointcloud_publisher_.publish(rotate_scan_cloud);}
+
+        // 对每个初始变换矩阵进行ICP匹配，并计算匹配分数
+        pcl::IterativeClosestPoint<PointT, PointT> icp_;
+        icp_.setInputSource(rotate_scan_cloud);
+        icp_.setInputTarget(cloud_map_msg);
+        icp_.setMaxCorrespondenceDistance(15);
+        icp_.setMaximumIterations(Relocation_Maximum_Iterations_);
+        icp_.setTransformationEpsilon(1e-8);
+        icp_.setEuclideanFitnessEpsilon(0.01);
+
         pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_result (new pcl::PointCloud<pcl::PointXYZ>);
-        icp_.align(*pointcloud_result, initial_transforms[i]);
+        icp_.align(*pointcloud_result);
 
         // 收敛了之后, 获取坐标变换
-        Eigen::Affine3f transfrom;
+        Eigen::Affine3f transfrom = Eigen::Affine3f::Identity();
         transfrom = icp_.getFinalTransformation();
 
         // 将Eigen::Affine3f转换成x, y, theta
@@ -460,11 +558,39 @@ bool Scan2MapLocation::ReLocationWithICP(Eigen::Isometry3d &trans , PointCloudT:
 
         fitness_scores.push_back(fitness_score);
         Transformation_sources.push_back(transfrom);
+        pointcloud_sources.push_back(pointcloud_result);
 
+        std::cout << "---------------------------------" << std::endl;
+        // std::cout << "transfrom:" << transfrom.matrix() << std::endl;
+        std::cout << "x:" << x << " y: " << y << " yaw: " << yaw << std::endl;
         std::cout << "tranDist:" << tranDist << " angleDist: " << angleDist << " score: " << icp_.getFitnessScore() << std::endl;
         std::cout << "fitness_score:" << fitness_score << std::endl;
 
+        // --------------------可视化每次匹配得到的点云数据----------------
         icp_pointcloud_publisher_.publish(pointcloud_result);   //发布匹配结果
+
+        // --------------------可视化每次匹配得到的坐标数据----------------
+
+        // 将initial_transform从Matrix4f转换为Isometry3d
+        Eigen::Isometry3d initial_transform = Eigen::Isometry3d::Identity();
+        initial_transform.linear() = initial_transforms[i].cast<double>().matrix().block<3, 3>(0, 0);
+        initial_transform.translation() = initial_transforms[i].cast<double>().matrix().block<3, 1>(0, 3);
+
+        Eigen::Isometry3d transfrom_icp = Eigen::Isometry3d::Identity();
+        transfrom_icp.matrix() = transfrom.matrix().cast<double>();
+
+        transfrom_icp = robot_pose.inverse() *  transfrom_icp * robot_pose;
+
+        //将icp结果从Matrix4f类型转换为Isometry3d类型，并点乘初始变换
+        Eigen::Isometry3d relocate_tranform_visuial_ = Eigen::Isometry3d::Identity();     //重定位过程可视化坐标
+        relocate_tranform_visuial_ = robot_pose * transfrom_icp * initial_transform; 
+
+        geometry_msgs::PoseWithCovarianceStamped relocation_match_visual;    //重定位可视化结果
+        relocation_match_visual = Isometry3d_to_PoseWithCovarianceStamped(relocate_tranform_visuial_);
+        relocate_tranform_visuial_publisher_.publish(relocation_match_visual);
+
+        // rotate_robotpose_publisher_.publish(Isometry3d_to_PoseWithCovarianceStamped(robot_pose * initial_transform));    //可视化旋转后robot_pose
+
     }
 
     // 找到分数最高的匹配结果
@@ -477,11 +603,50 @@ bool Scan2MapLocation::ReLocationWithICP(Eigen::Isometry3d &trans , PointCloudT:
         }
     }
 
-    trans.matrix() = Transformation_sources[best_index].matrix().cast<double>();      //Matrix4f类型转换为Isometry3d类型
+    // 将initial_transform从Matrix4f转换为Isometry3d
+    Eigen::Isometry3d initial_transform = Eigen::Isometry3d::Identity();
+    initial_transform.linear() = initial_transforms[best_index].cast<double>().matrix().block<3, 3>(0, 0);
+    initial_transform.translation() = initial_transforms[best_index].cast<double>().matrix().block<3, 1>(0, 3);
 
+    // 将icp结果从Matrix4f转换为Isometry3d，并转换到robot_pose
+    Eigen::Isometry3d transfrom_icp = Eigen::Isometry3d::Identity();
+    transfrom_icp.matrix() = Transformation_sources[best_index].matrix().cast<double>();
+    transfrom_icp = robot_pose.inverse() *  transfrom_icp * robot_pose;
+    //将icp结果从Matrix4f类型转换为Isometry3d类型，并点乘初始变换
+
+    trans = robot_pose * transfrom_icp * initial_transform;
+
+    geometry_msgs::PoseWithCovarianceStamped relocation_initialpose;    //重定位结果
+    relocation_initialpose = Isometry3d_to_PoseWithCovarianceStamped(trans);
+    relocate_initialpose_publisher_.publish(relocation_initialpose);
+
+    icp_pointcloud_publisher_.publish(pointcloud_sources[best_index]);   //发布匹配结果
+
+    roborts_msgs::LocationInfo location_info_msg;
+    location_info_msg.if_relocation = true;
+    location_info_msg.point_cloud_quantity = cloud_scan_->points.size();
+    location_info_msg.tranDist = 0;
+    location_info_msg.angleDist = 0;
+    location_info_msg.angle_apeed = abs(imu_queue_.back().angular_velocity.z);
+    location_info_msg.score = best_score;
+
+    if(if_debug_){
     // 输出匹配结果
-    std::cout << "Best transformation matrix:" << std::endl << Transformation_sources[best_index].matrix() << std::endl;
     std::cout << "Best fitness score:" << std::endl << best_score << std::endl;
+    std::cout << "Best index score:" << best_index << std::endl;
+    std::cout << "Best transformation matrix:" << std::endl << Transformation_sources[best_index].matrix() << std::endl;
+    }
+
+    if(best_score > Relocation_Score_Threshold_Max_){
+        // std::cout << "faile to relocation"  << std::endl;
+        ROS_INFO_STREAM("\033[1;33m faile to relocation.\033[0m");
+        location_info_msg.if_match_success = false;
+        location_info_publisher_.publish(location_info_msg);    //定位信息发布
+        return false;
+    }
+
+    location_info_msg.if_match_success = true;
+    location_info_publisher_.publish(location_info_msg);    //定位信息发布
 
     return true;
 }
@@ -558,9 +723,10 @@ void Scan2MapLocation::PointCloudOutlierRemoval(PointCloudT::Ptr &cloud_msg)
      /* 执行滤波 返回 滤波后 的 点云 */
     sor_OutRemove.filter (*cloud_msg);
  
- 
     /* 打印滤波前后的点数 */
-    // std::cout << "size of clound OutlierRemovaled : " << cloud_msg->points.size() << std::endl;
+    if (if_debug_){
+    std::cout << "size of clound OutlierRemovaled : " << cloud_msg->points.size() << std::endl;
+    }
 }
 
 /**
@@ -582,26 +748,6 @@ void Scan2MapLocation::PointCloudVoxelGridRemoval(PointCloudT::Ptr &cloud_msg, d
 }
 
 /**
- * 推测从上次icp的时间到当前时刻间的坐标变换
- * 使用匀速模型，根据当前的速度，乘以时间，得到推测出来的位移
- */
-void Scan2MapLocation::GetPrediction(double &prediction_change_x,
-                                   double &prediction_change_y,
-                                   double &prediction_change_angle,
-                                   double dt)
-{
-    // 速度小于 1e-6 , 则认为是静止的
-    prediction_change_x = latest_velocity_.linear.x < 1e-6 ? 0.0 : dt * latest_velocity_.linear.x;
-    prediction_change_y = latest_velocity_.linear.y < 1e-6 ? 0.0 : dt * latest_velocity_.linear.y;
-    prediction_change_angle = latest_velocity_.linear.z < 1e-6 ? 0.0 : dt * latest_velocity_.linear.z;
-
-    if (prediction_change_angle >= M_PI)
-        prediction_change_angle -= 2.0 * M_PI;
-    else if (prediction_change_angle < -M_PI)
-        prediction_change_angle += 2.0 * M_PI;
-}
-
-/**
  * 从x,y,theta创建tf
  */
 void Scan2MapLocation::CreateTfFromXYTheta(double x, double y, double theta, tf2::Transform &t)
@@ -610,31 +756,6 @@ void Scan2MapLocation::CreateTfFromXYTheta(double x, double y, double theta, tf2
     tf2::Quaternion q;
     q.setRPY(0.0, 0.0, theta);
     t.setRotation(q);
-}
-
-/**
- * 发布tf与odom话题
- */
-void Scan2MapLocation::PublishTFAndOdometry()
-{
-    geometry_msgs::TransformStamped tf_msg;
-    tf_msg.header.stamp = current_time_;
-    tf_msg.header.frame_id = odom_frame_;
-    tf_msg.child_frame_id = base_frame_;
-    tf_msg.transform = tf2::toMsg(base_in_odom_);
-
-    // 发布 odom 到 base_link 的 tf
-    tf_broadcaster_.sendTransform(tf_msg);
-
-    nav_msgs::Odometry odom_msg;
-    odom_msg.header.stamp = current_time_;
-    odom_msg.header.frame_id = odom_frame_;
-    odom_msg.child_frame_id = base_frame_;
-    tf2::toMsg(base_in_odom_, odom_msg.pose.pose);
-    odom_msg.twist.twist = latest_velocity_;
-
-    // 发布 odomemtry 话题
-    odom_publisher_.publish(odom_msg);
 }
 
 /**
@@ -706,8 +827,8 @@ void Scan2MapLocation::ScanToPointCloudOnMap(const sensor_msgs::LaserScan::Const
         }
         // 有些雷达驱动会将无效点设置成 range_max+1
         // 所以要根据雷达的range_min与range_max进行有效值的判断
-        if (range > scan_msg->range_min && range < scan_msg->range_max 
-            && range > Scan_Range_Min && range < Scan_Range_Max)
+        if ((range > scan_msg->range_min) && (range < scan_msg->range_max) 
+            && (range > Scan_Range_Min) && (range < Scan_Range_Max))
         {
             point_len += 1;
 
@@ -779,6 +900,56 @@ void Scan2MapLocation::ScanToPointCloudOnMap(const sensor_msgs::LaserScan::Const
     cloud_msg->header = pcl_conversions::toPCL(header);
 }
 
+/**
+ * 旋转激光雷达数据
+*/
+void Scan2MapLocation::rotateScan(sensor_msgs::LaserScan::Ptr & scan_msg, double angle)
+{
+    // 创建一个新的激光雷达消息
+    sensor_msgs::LaserScan::ConstPtr origin_scan(new sensor_msgs::LaserScan(*scan_msg));
+
+    // 计算要旋转的索引数
+    int index_shift = static_cast<int>(angle / origin_scan->angle_increment);
+
+    // 循环遍历原始激光雷达数据，并将数据旋转指定的角度
+    for (int i = 0; i < origin_scan->ranges.size(); ++i) {
+        int rotated_index = i + index_shift;
+        if (rotated_index >= origin_scan->ranges.size()) {
+        rotated_index -= origin_scan->ranges.size();
+        } else if (rotated_index < 0) {
+        rotated_index += origin_scan->ranges.size();
+        }
+        scan_msg->ranges[rotated_index] = origin_scan->ranges[i];
+    }
+
+    // // 循环遍历原始激光雷达数据，并将数据旋转指定的角度
+    // for (int i = 0; i < scan_msg->ranges.size(); ++i)
+    // {
+    //     scan_msg->angle[i] += angle;
+    //     if (scan_msg->angle[i] > M_PI)
+    //     {
+    //         scan_msg->angle[i] -= 2 * M_PI;
+    //     }
+    //     else if((scan_msg->angle[i] < -M_PI))
+    //     {
+    //         scan_msg->angle[i] += 2 * M_PI;
+    //     }
+    // }
+
+}
+
+/**
+ * 对点云数据绕机器人坐标点进行旋转
+*/
+void Scan2MapLocation::rotatePointCloud(PointCloudT::Ptr &cloud_msg, const Eigen::Affine3f &rotation, const Eigen::Affine3f &robo_pose)
+{
+    //将点云转换到原点
+    pcl::transformPointCloud(*cloud_msg, *cloud_msg, robo_pose.inverse());
+    //绕原点进行旋转
+    pcl::transformPointCloud(*cloud_msg, *cloud_msg, rotation);
+    // 将点云平移回去：
+    pcl::transformPointCloud(*cloud_msg, *cloud_msg, robo_pose);
+}
 
 /**
  * 从odom中读取start_time 到end_time时间段的坐标变换
@@ -1003,6 +1174,112 @@ bool Scan2MapLocation::GetTransform(Eigen::Isometry3d &trans , const std::string
 
 
     return gotTransform;
+}
+
+geometry_msgs::PoseWithCovarianceStamped Scan2MapLocation::Isometry3d_to_PoseWithCovarianceStamped(const Eigen::Isometry3d& iso)
+{
+    // 创建一个PoseWithCovarianceStamped类型的消息
+    geometry_msgs::PoseWithCovarianceStamped pose_msg;
+
+    // 填充消息头
+    pose_msg.header.stamp = ros::Time::now();
+    pose_msg.header.frame_id = "map";
+
+    //旋转矩阵转四元数
+    Eigen::Quaterniond q = Eigen::Quaterniond(iso.rotation());
+
+    // 填充消息头
+    std_msgs::Header header;
+    header.stamp = ros::Time::now();
+    header.frame_id = "map";
+    pose_msg.header = header;
+    pose_msg.pose.pose.orientation.x = q.x();
+    pose_msg.pose.pose.orientation.y = q.y();
+    pose_msg.pose.pose.orientation.z = q.z();
+    pose_msg.pose.pose.orientation.w = q.w();
+    // pose_msg.pose.orientation = q;
+    pose_msg.pose.pose.position.x = iso.translation()(0);
+    pose_msg.pose.pose.position.y = iso.translation()(1);
+    pose_msg.pose.pose.position.z = iso.translation()(2);
+    //x, y, z, rotation about X axis, rotation about Y axis, rotation about Z axis
+
+    return pose_msg;
+}
+
+bool Scan2MapLocation::ifCoordinateInExclusionRegion(const std::vector<double>& region, const Eigen::Isometry3d &coord)
+{
+    if(region.size() %4 != 0){
+        ROS_ERROR_STREAM("size of ExclusionRegion is not a multiple of 4.");
+        return false;
+    }
+
+    const int num_ranges = region.size() / 4;
+    // std::cout << "num_ranges : " << num_ranges << std::endl;
+    for (int i = 0; i < num_ranges; i++) {
+        double x1 = region[i * 4];
+        double y1 = region[i * 4 + 1];
+        double x2 = region[i * 4 + 2];
+        double y2 = region[i * 4 + 3];
+
+        if (x1 <= coord.translation().x() && coord.translation().x() <= x2 && 
+            y1 <= coord.translation().y() && coord.translation().y() <= y2)
+            {return true;}
+
+    }
+    return false;
+}
+
+bool Scan2MapLocation::pubRegionByMarker(std::vector<double>& region)
+{
+
+    if(region.size() %4 != 0){
+        ROS_ERROR_STREAM("size of ExclusionRegion is not a multiple of 4.");
+        return false;
+    }
+
+    // 创建一个Marker消息
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "map";
+    marker.header.stamp = ros::Time::now();
+    marker.ns = "shapes";
+    marker.type = visualization_msgs::Marker::CUBE;
+    marker.action = visualization_msgs::Marker::ADD;
+
+    // 设置Marker的尺寸
+    marker.scale.x = 1.0;  // 正方体的边长
+    marker.scale.y = 1.0;
+    marker.scale.z = 0.1;
+
+    // 设置Marker的颜色
+    marker.color.r = 0.0;  // 红色
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    marker.color.a = 0.3;  // 不透明
+
+    marker.pose.orientation.x = 0;
+    marker.pose.orientation.y = 0;
+    marker.pose.orientation.z = 0;
+    marker.pose.orientation.w = 1;
+
+    const int num_ranges = region.size() / 4;
+    // std::cout << "num_ranges : " << num_ranges << std::endl;
+    for (int i = 0; i < num_ranges; i++) {
+        double x1 = region[i * 4];
+        double y1 = region[i * 4 + 1];
+        double x2 = region[i * 4 + 2];
+        double y2 = region[i * 4 + 3];
+
+        marker.id = i;
+        marker.scale.x = x2 - x1;  // 正方体的边长
+        marker.scale.y = y2 - y1;
+        // 设置Marker的位置和姿态
+        marker.pose.position.x = (x2 + x1)/2;  // 中心点的X坐标
+        marker.pose.position.y = (y2 + y1)/2;
+        marker.pose.position.z = 0.05;
+
+        region_marker_pub_.publish(marker); // 发布Marker消息
+    }
+    return true;
 }
 
 int main(int argc, char **argv)

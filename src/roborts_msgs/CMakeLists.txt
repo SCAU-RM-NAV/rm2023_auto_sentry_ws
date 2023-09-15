@@ -20,6 +20,7 @@ add_message_files(
   EnemyInfo.msg
   EnemyLocate.msg
   RobotStatus.msg
+  LocationInfo.msg
 )
 
 add_service_files(

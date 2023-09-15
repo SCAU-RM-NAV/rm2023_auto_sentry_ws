@@ -1,0 +1,7 @@
+bool if_relocation
+float64 point_cloud_quantity
+float64 tranDist
+float64 angleDist
+float64 angle_apeed
+float64 score
+bool if_match_success
