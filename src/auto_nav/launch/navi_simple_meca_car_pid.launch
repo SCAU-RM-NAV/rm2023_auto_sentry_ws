@@ -15,11 +15,11 @@
   <!--Launch the move base with time elastic band-->
   <param name="/use_sim_time" value="true"/>
   <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
-    <rosparam file="$(find auto_nav)/config/params/costmap_common_params.yaml" command="load" ns="global_costmap" />
-    <rosparam file="$(find auto_nav)/config/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
-    <rosparam file="$(find auto_nav)/config/params/local_costmap_params.yaml" command="load" />
-    <rosparam file="$(find auto_nav)/config/params/global_costmap_params.yaml" command="load" />
-    <rosparam file="$(find auto_nav)/config/params/teb_local_planner_params.yaml" command="load" />
+    <rosparam file="$(find auto_nav)/config/point_pid_params/costmap_common_params.yaml" command="load" ns="global_costmap" />
+    <rosparam file="$(find auto_nav)/config/point_pid_params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find auto_nav)/config/point_pid_params/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find auto_nav)/config/point_pid_params/global_costmap_params.yaml" command="load" />
+    <rosparam file="$(find auto_nav)/config/point_pid_params/teb_local_planner_params.yaml" command="load" />
     
     <param name="base_global_planner" value="global_planner/GlobalPlanner" />
     <!--<param name="neutral_cost" value="220" />-->
