@@ -78,13 +78,7 @@ RM2022自动步兵开源链接https://github.com/SCAU-RM-NAV/rm2022_auto_infantr
     │       └── rmus_map_2.urdf
     ├── roborts_msgs 消息类型功能包
     │   ├── CMakeLists.txt
-    │   ├── msg
-    │   │   ├── EnemyInfo.msg
-    │   │   ├── EnemyLocate.msg
-    │   │   ├── GameStatus.msg
-    │   │   ├── GimbalCtrl.msg
-    │   │   ├── GimbalFdb.msg
-    │   │   └── RobotStatus.msg
+    │   ├── msg     自定义消息类型
     │   ├── package.xml
     │   └── srv
     │       ├── PidPlannerStatus.srv
@@ -124,3 +118,13 @@ roslaunch simple_meca_car race.launch
 ```
 roslaunch auto_nav navi_simple_meca_car_pid.launch 
 ```
+
+## 算法原理
+
+ROS中的navigation提供了一套框架，可以让我们灵活的选择global_planner 、local_planner 来提供路径规划功能，navigation原本框架就能实现基本的导航与定位功能
+以下为ROS导航模块官方的框图：
+
+![ROS导航模块官方的框图](assets/navigation.jpg "Magic Gardens")
+
+本项目在上述框架基础上改进了定位和轨迹跟踪算法
+在定位模块中，使用里程计数据维护odom到base_link的坐标变换（实际项目中也可以使用3维激光里程计，可以得到更好的效果），同时使用激光雷达点云数据和地图点云数据进行ICP点云配准，得到全局坐标系下机器人定位，使用开源的robot_localization实现EKF，融合ICP得到的全局坐标和里程计和imu的数据，维护map到odom这段tf的变换。
