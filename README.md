@@ -1,7 +1,7 @@
 # rm2023_auto_sentry_ws
  RM2023华南农业大学Taurus机器人战队哨兵定位导航算法与仿真开源
 
-RM2023哨兵技术报告开源https://bbs.robomaster.com/forum.php?mod=viewthread&tid=22779
+RM2023哨兵技术报告开源[https://bbs.robomaster.com/forum.php?mod=viewthread&tid=22779](https://bbs.robomaster.com/article/9453?source=4)
 
 RM2022自动步兵开源链接https://github.com/SCAU-RM-NAV/rm2022_auto_infantry_ws
 
